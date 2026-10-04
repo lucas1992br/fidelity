@@ -23,8 +23,8 @@ Route::middleware('auth')->group(function () {
     });
     Route::livewire('/clientes/{customer}/editar', 'pages::placeholder')->middleware('can:customers.update')->name('customers.edit');
 
-    Route::livewire('/planos', 'pages::placeholder')->middleware('can:plans.manage')->name('plans.index');
-    Route::livewire('/cartoes', 'pages::placeholder')->middleware('can:cards.stock.view')->name('cards.stock');
+    Route::livewire('/planos', 'pages::plans')->middleware('can:plans.manage')->name('plans.index');
+    Route::livewire('/cartoes', 'pages::cards.stock')->middleware('can:cards.stock.view')->name('cards.stock');
 
     // --- Faturamento ---
     Route::middleware('can:billing.view')->group(function () {
