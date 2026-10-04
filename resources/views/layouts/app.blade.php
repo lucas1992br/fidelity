@@ -1,10 +1,12 @@
 @php
+    use App\Settings\ClinicSettings;
     use App\Support\Navigation;
 
     $current = Navigation::current();
     $pageTitle = $title ?? $current['item']['label'] ?? config('app.name');
     $crumb = $crumb ?? $current['group'] ?? '';
     $user = auth()->user();
+    $clinicName = rescue(fn (): string => app(ClinicSettings::class)->clinic_name, 'Policlínica', report: false);
 @endphp
 
 <!DOCTYPE html>
@@ -30,7 +32,7 @@
                         <x-ui.icon name="heart-pulse" class="size-5" />
                     </div>
                     <div class="flex flex-col leading-[1.15] compact:hidden">
-                        <span class="font-display text-[17px] font-bold tracking-[-0.01em] text-ink-800">Policlínica</span>
+                        <span class="font-display text-[17px] font-bold tracking-[-0.01em] text-ink-800">{{ $clinicName }}</span>
                         <span class="text-xs text-ink-500">Cartão fidelidade</span>
                     </div>
                 </div>

@@ -43,6 +43,6 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::livewire('/relatorios', 'pages::placeholder')->middleware('can:reports.view')->name('reports.index');
-    Route::livewire('/configuracoes', 'pages::placeholder')->middleware('can:settings.manage')->name('settings');
-    Route::livewire('/usuarios', 'pages::placeholder')->middleware('can:users.manage')->name('users.index');
+    Route::livewire('/configuracoes', 'pages::settings')->middleware('can:settings.manage')->name('settings');
+    Route::livewire('/usuarios', 'pages::users.index')->middleware('can:users.manage')->name('users.index');
 });
