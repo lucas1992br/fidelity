@@ -18,6 +18,8 @@ new class extends Component
     #[On('open-replace-card')]
     public function open(): void
     {
+        $this->authorize('cards.manage');
+
         $this->reset('reason', 'number');
         $this->isOpen = true;
     }
@@ -38,6 +40,8 @@ new class extends Component
 
     public function confirm(): void
     {
+        $this->authorize('cards.manage');
+
         if (! ($this->check['available'] ?? false)) {
             return;
         }

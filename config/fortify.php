@@ -1,7 +1,5 @@
 <?php
 
-use Laravel\Fortify\Features;
-
 return [
 
     /*
@@ -73,7 +71,11 @@ return [
     |
     */
 
-    'home' => '/home',
+    'home' => '/',
+
+    'redirects' => [
+        'logout' => '/login',
+    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -162,19 +164,8 @@ return [
     */
 
     'features' => [
-        Features::registration(),
-        Features::resetPasswords(),
-        // Features::emailVerification(),
-        Features::updateProfileInformation(),
-        Features::updatePasswords(),
-        Features::twoFactorAuthentication([
-            'confirm' => true,
-            'confirmPassword' => true,
-            // 'window' => 0,
-        ]),
-        Features::passkeys([
-            'confirmPassword' => true,
-        ]),
+        // Login and logout only: users are created and their passwords reset
+        // by the admin (user management screen).
     ],
 
 ];

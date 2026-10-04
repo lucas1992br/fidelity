@@ -11,6 +11,11 @@ new class extends Component
     #[Url(as: 'q', except: '')]
     public string $query = '';
 
+    public function mount(): void
+    {
+        $this->authorize('cards.check');
+    }
+
     public function render(): View
     {
         return $this->view([

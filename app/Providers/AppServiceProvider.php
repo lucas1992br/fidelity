@@ -2,10 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -25,6 +27,21 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+
+        $this->configureAuthorization();
+    }
+
+    /**
+     * The admin holds every permission without rows in `role_has_permissions`.
+     *
+     * The bypass only answers permission checks (`can('users.manage')`, no
+     * arguments). Policy checks (`can('update', $entry)`) still run the policy,
+     * whose permission checks pass for the admin through this same bypass, so
+     * state rules such as "automatic entries are read-only" apply to everyone.
+     */
+    protected function configureAuthorization(): void
+    {
+        Gate::before(fn (User $user, string $ability, array $arguments): ?bool => $user->hasRole('admin') && $arguments === [] ? true : null);
     }
 
     /**

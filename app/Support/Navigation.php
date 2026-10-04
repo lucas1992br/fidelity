@@ -63,14 +63,11 @@ class Navigation
     }
 
     /**
-     * Whether the current user holds a permission.
-     *
-     * Prototype: there is no authentication yet, so guests see everything.
-     * Remove the guest bypass when Fortify + spatie/laravel-permission land.
+     * Whether the current user holds a permission (guests hold none).
      */
     public static function allows(string $permission): bool
     {
-        return auth()->guest() || Gate::allows($permission);
+        return Gate::allows($permission);
     }
 
     /**

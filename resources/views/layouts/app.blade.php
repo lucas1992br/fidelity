@@ -82,11 +82,15 @@
                     </a>
 
                     <div class="flex items-center gap-2.5">
-                        <x-ui.avatar :initials="$user ? \App\Support\Format::initials($user->name) : 'CF'" size="sm" />
+                        <x-ui.avatar :initials="\App\Support\Format::initials($user->name)" size="sm" />
                         <div class="flex flex-col leading-[1.2]">
-                            <span class="text-[13px] font-semibold text-ink-800">{{ $user?->name ?? 'Protótipo' }}</span>
-                            <span class="text-xs text-ink-500">{{ $user ? 'Usuário' : 'Sem autenticação' }}</span>
+                            <span class="text-[13px] font-semibold text-ink-800">{{ $user->name }}</span>
+                            <span class="text-xs text-ink-500">{{ $user->role_label }}</span>
                         </div>
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <x-ui.button type="submit" variant="ghost" size="sm" icon="log-out" title="Sair do sistema">Sair</x-ui.button>
+                        </form>
                     </div>
                 </header>
 

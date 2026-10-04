@@ -6,6 +6,11 @@ use Livewire\Component;
 
 new class extends Component
 {
+    public function mount(): void
+    {
+        $this->authorize('dashboard.view');
+    }
+
     public function render(): View
     {
         return $this->view([

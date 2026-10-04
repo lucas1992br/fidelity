@@ -20,6 +20,8 @@ new class extends Component
     #[On('open-payment')]
     public function open(int $invoice): void
     {
+        $this->authorize('billing.pay');
+
         $found = DemoData::invoice($invoice);
 
         if (! $found || ! $found['status']->isPayable()) {
@@ -51,6 +53,8 @@ new class extends Component
 
     public function confirm(): void
     {
+        $this->authorize('billing.pay');
+
         $context = $this->context;
 
         if (! $context) {
