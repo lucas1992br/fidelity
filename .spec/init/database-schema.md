@@ -222,7 +222,7 @@ Table plan_changes {
   to_price decimal(12,2) [not null]
   reason varchar [null]
   user_id bigint [ref: > users.id, not null]
-  created_at timestamp
+  created_at timestamp [note: 'Log imutável: sem updated_at (model com UPDATED_AT = null)']
 }
 
 Table customer_notes {
@@ -276,7 +276,7 @@ Table card_status_logs {
   to_card_status_id bigint [ref: > card_statuses.id, not null]
   reason varchar [null, note: 'Ex.: Suspensão automática: 32 dias em atraso']
   user_id bigint [ref: > users.id, null, note: 'null = sistema']
-  created_at timestamp
+  created_at timestamp [note: 'Log imutável: sem updated_at (model com UPDATED_AT = null)']
 }
 
 // ---------------------------------------------------------------------------
@@ -291,7 +291,7 @@ Table invoices {
   amount decimal(12,2) [not null, note: 'Congelado na geração']
   due_date date [not null]
   invoice_status_id bigint [ref: > invoice_statuses.id, not null]
-  paid_at date [null]
+  paid_at date [null, note: 'Cópia de payments.paid_at do pagamento ativo; RegisterPayment preenche, RefundPayment limpa']
   created_at timestamp
   updated_at timestamp
 
@@ -333,11 +333,15 @@ Table financial_categories {
   is_active boolean [not null, default: true]
   created_at timestamp
   updated_at timestamp
+
+  indexes {
+    (id, entry_type_id) [unique, name: 'financial_categories_id_entry_type_unique', note: 'Alvo da FK composta de financial_entries']
+  }
 }
 
 Table financial_entries {
   id bigint [pk, increment]
-  entry_type_id bigint [ref: > entry_types.id, not null]
+  entry_type_id bigint [ref: > entry_types.id, not null, note: 'Deve ser igual ao tipo da categoria: garantido pela FK composta abaixo']
   financial_category_id bigint [ref: > financial_categories.id, not null]
   description varchar [not null]
   amount decimal(12,2) [not null]
@@ -358,6 +362,9 @@ Table financial_entries {
     paid_at
   }
 }
+
+// Tipo do lançamento = tipo da categoria (FK composta, ON UPDATE RESTRICT)
+Ref: financial_entries.(financial_category_id, entry_type_id) > financial_categories.(id, entry_type_id)
 
 // ---------------------------------------------------------------------------
 // Package-owned infrastructure
@@ -438,7 +445,7 @@ Table settings {
 - Seeds de domínio (não lookup, mas carga inicial):
   - **financial_categories**: Mensalidades (income, `is_system`), Outras receitas (income), Aluguel, Salários, Materiais, Marketing, Impostos, Outras despesas (expense)
   - **plans**: Individual, Familiar (spec §13)
-  - **settings** (`group = clinic`): `default_due_day = 10`, `suspend_after_days = 30`, `invoice_generation_day`, `min_card_stock`, `card_number_pattern = null`, dados da clínica
+  - **settings** (`group = clinic`): `default_due_day = 10`, `suspend_after_days = 30`, `invoice_generation_day = 20`, `min_card_stock = 50`, `card_number_pattern = null`, dados da clínica
 
 ## Notes & Conventions
 
@@ -452,11 +459,11 @@ Table settings {
 - **Datas**: `invoices.reference_month` sempre dia 1; dias em atraso são calculados (`hoje − due_date`), não armazenados.
 - **Identificação do dependente** (`000123-02`) é calculada a partir do cartão vigente + `sequence`; não é armazenada.
 - **Tabelas de pacote**: `roles`, `permissions`, `model_has_roles`, `model_has_permissions`, `role_has_permissions` (spatie/laravel-permission), `activity_log` (spatie/laravel-activitylog) e `settings` (spatie/laravel-settings) vêm das migrations publicadas pelos pacotes; não editar sua estrutura.
+- **Tipo do lançamento coerente com a categoria**: `financial_entries.entry_type_id` é mantido (filtros e índice `(entry_type_id, entry_status_id, due_date)` sem join), mas a coerência com `financial_categories.entry_type_id` é garantida no banco por uma FK composta `(financial_category_id, entry_type_id) → financial_categories (id, entry_type_id)`, apoiada no índice único `(id, entry_type_id)` da categoria. Uma despesa ligada a categoria de receita é rejeitada pelo PostgreSQL; mudar o tipo de uma categoria que já tem lançamentos também é bloqueado (`ON UPDATE RESTRICT`). As Actions validam antes para exibir mensagem amigável.
+- **Data de pagamento da mensalidade**: `invoices.paid_at` é cópia desnormalizada de `payments.paid_at` do pagamento **ativo** (`refunded_at IS NULL`), mantida só pelas Actions em transação: `RegisterPayment` grava a data e o status `paid`; `RefundPayment` limpa `paid_at` e volta o status para `open` (se `due_date >= hoje`) ou `overdue` (se vencida). Invariante: `paid_at` preenchido ⇔ status `paid` ⇔ existe pagamento ativo.
+- **Logs imutáveis**: `plan_changes` e `card_status_logs` só têm `created_at`; os models declaram `const UPDATED_AT = null` e os registros nunca são editados.
+- **Banco nos testes**: índices parciais, sequence, `pg_trgm`/`unaccent` e check constraints são específicos do PostgreSQL, então testes e CI rodam em PostgreSQL 18 (banco `testing`), nunca em SQLite.
 - **Infra do framework** (já existentes, não modeladas acima): `password_reset_tokens`, `sessions`, `cache`, `cache_locks`, `jobs`, `job_batches`, `failed_jobs`. `users` ganha apenas a coluna `is_active`.
 - **Conceitos não persistidos**: *Vidas atendidas* e *Índice de inadimplência* são calculados em tempo de execução (`DashboardMetrics`); *Dias em atraso* idem; *Segunda via* e *Suspensão automática* são processos registrados em `card_status_logs` (sem tabela própria); *Estorno* é registrado em `payments.refunded_*`; *Dinheiro e formatos* é convenção de tipo/exibição.
 - **Reingresso** (US-6.4, workflow 16): sem tabela nova — um novo cartão é vinculado ao mesmo `customers.id` (o índice parcial só restringe cartões vigentes) e `plan_changes.reason = 'Reingresso'` registra o retorno.
 - **Planos do design**: o protótipo visual mostra um terceiro plano ("Familiar Plus", R$ 129,90, até 7 dependentes), mas o seed segue a spec (Individual, Familiar); planos são editáveis pelo Admin (US-3.1).
-
-## Open Questions
-
-- **Valores iniciais** de `invoice_generation_day` e `min_card_stock` nas configurações.
