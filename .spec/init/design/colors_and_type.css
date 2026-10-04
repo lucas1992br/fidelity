@@ -1,0 +1,311 @@
+/* =====================================================================
+   SafeKids Design System — Foundations
+   Colors + Typography tokens
+   ===================================================================== */
+
+/* Fonts ----------------------------------------------------------------- */
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* ---------- Brand palette ---------- */
+  /* Primary "Guardian" — a warm, confident sky-blue. Trust without the
+     coldness of corporate blue. Used for primary actions, links, and the
+     shield mark in the logo. */
+  --guardian-50:  #EAF2FF;
+  --guardian-100: #D2E1FE;
+  --guardian-200: #A6C3FD;
+  --guardian-300: #79A4FC;
+  --guardian-400: #4D86F4;
+  --guardian-500: #2E78F2;  /* PRIMARY */
+  --guardian-600: #1F5FCB;
+  --guardian-700: #1A4DA8;
+  --guardian-800: #163D85;
+  --guardian-900: #112D63;
+
+  /* Accent "Embrace" — warm coral. Used sparingly for highlights, family
+     moments, success-of-care states. Counterbalances the blue. */
+  --embrace-50:  #FFF1EC;
+  --embrace-100: #FFDFD2;
+  --embrace-200: #FFC0A8;
+  --embrace-300: #FBA079;
+  --embrace-400: #F4895F;
+  --embrace-500: #F08661;  /* ACCENT */
+  --embrace-600: #D86B45;
+  --embrace-700: #B0532F;
+  --embrace-800: #823C21;
+
+  /* Soft "Sunbeam" yellow — a friendly tint we use for kid-facing surfaces
+     and reward states. Never used as a status color. */
+  --sunbeam-100: #FFF4D6;
+  --sunbeam-300: #FFDF85;
+  --sunbeam-500: #FFC857;
+
+  /* ---------- Semantic / status ---------- */
+  --success-50:  #E7F8EF;
+  --success-100: #C6EFD7;
+  --success-500: #29A871;
+  --success-600: #1E8859;
+  --success-700: #176A45;
+
+  --warning-50:  #FFF6E0;
+  --warning-100: #FFE6A8;
+  --warning-500: #F2B33F;
+  --warning-600: #D08F20;
+  --warning-700: #966200;
+
+  --danger-50:  #FDECEC;
+  --danger-100: #FACBCB;
+  --danger-500: #E55656;
+  --danger-600: #C13838;
+  --danger-700: #962727;
+
+  /* ---------- Risk classifications (used in browsing history + alerts) ----- */
+  --risk-safe:    var(--success-500);
+  --risk-low:     #7CC1E4;
+  --risk-medium:  var(--warning-500);
+  --risk-high:    var(--embrace-500);
+  --risk-blocked: var(--danger-500);
+
+  /* ---------- Neutrals — warm-cool grays ---------- */
+  /* Slight blue undertone keeps surfaces feeling clean but not clinical. */
+  --ink-0:   #FFFFFF;
+  --ink-25:  #FAFBFD;   /* page background, light */
+  --ink-50:  #F4F6FA;   /* card base, hover surface */
+  --ink-100: #E8ECF3;   /* dividers, subtle fills */
+  --ink-200: #D4DAE5;   /* inputs border */
+  --ink-300: #B6BECC;   /* disabled, placeholder */
+  --ink-400: #8E97A8;   /* fg-muted */
+  --ink-500: #6A7385;   /* fg-secondary */
+  --ink-600: #4B5364;   /* fg-primary on light */
+  --ink-700: #353B49;   /* heading on light */
+  --ink-800: #232834;
+  --ink-900: #141822;   /* deepest ink */
+
+  /* ---------- Semantic foreground / background ---------- */
+  --bg-page:      var(--ink-25);
+  --bg-surface:   var(--ink-0);
+  --bg-elevated:  var(--ink-0);
+  --bg-subtle:    var(--ink-50);
+  --bg-muted:     var(--ink-100);
+  --bg-inverse:   var(--ink-900);
+
+  --fg-default:   var(--ink-700);
+  --fg-primary:   var(--ink-800);
+  --fg-secondary: var(--ink-500);
+  --fg-muted:     var(--ink-400);
+  --fg-on-brand:  var(--ink-0);
+  --fg-link:      var(--guardian-600);
+
+  --border-subtle:  var(--ink-100);
+  --border-default: var(--ink-200);
+  --border-strong:  var(--ink-300);
+  --border-focus:   var(--guardian-500);
+
+  /* ---------- Family/role tints — used to identify whose surface this is ---------- */
+  --role-parent-bg:   #EAF2FF;
+  --role-parent-fg:   var(--guardian-700);
+  --role-teen-bg:     #F1EAFE;
+  --role-teen-fg:     #5B3FB8;
+  --role-child-bg:    #FFF4D6;
+  --role-child-fg:    #8A5B00;
+  --role-admin-bg:    #E8ECF3;
+  --role-admin-fg:    var(--ink-700);
+
+  /* ---------- Typography ---------- */
+  --font-display: 'Bricolage Grotesque', ui-sans-serif, sans-serif;
+  --font-body:    'Plus Jakarta Sans', ui-sans-serif, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+
+  /* Type scale — designed mobile-first with a modular 1.2 ratio that
+     opens up to 1.25 at large display sizes. */
+  --fs-xs:    12px;
+  --fs-sm:    13px;
+  --fs-base:  15px;   /* body default — slightly larger for readability */
+  --fs-md:    17px;
+  --fs-lg:    19px;
+  --fs-xl:    22px;
+  --fs-2xl:   26px;
+  --fs-3xl:   32px;
+  --fs-4xl:   40px;
+  --fs-5xl:   52px;
+  --fs-6xl:   64px;
+
+  --lh-tight:   1.15;
+  --lh-snug:    1.3;
+  --lh-normal:  1.5;
+  --lh-relaxed: 1.65;
+
+  --tracking-tight:  -0.02em;
+  --tracking-snug:   -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide:    0.04em;
+  --tracking-caps:    0.08em;
+
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+  --fw-display:  700;
+
+  /* ---------- Spacing ---------- */
+  --space-0:  0;
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* ---------- Radii ---------- */
+  /* Generously rounded — corners are how SafeKids signals "friendly, not
+     clinical". Cards default to 16px; large cards/sheets 24px. */
+  --radius-xs:   4px;
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;   /* card default */
+  --radius-xl:   20px;
+  --radius-2xl:  24px;   /* sheets, hero cards */
+  --radius-3xl:  32px;
+  --radius-pill: 999px;
+
+  /* ---------- Shadows ---------- */
+  /* Soft, low-spread. The brand never uses harsh drop shadows. */
+  --shadow-xs:    0 1px 2px rgba(20, 24, 34, 0.04);
+  --shadow-sm:    0 2px 4px rgba(20, 24, 34, 0.05), 0 1px 2px rgba(20, 24, 34, 0.04);
+  --shadow-md:    0 6px 14px rgba(20, 24, 34, 0.07), 0 2px 4px rgba(20, 24, 34, 0.04);
+  --shadow-lg:    0 14px 32px rgba(20, 24, 34, 0.09), 0 4px 8px rgba(20, 24, 34, 0.04);
+  --shadow-xl:    0 24px 48px rgba(20, 24, 34, 0.12), 0 8px 16px rgba(20, 24, 34, 0.06);
+  --shadow-focus: 0 0 0 4px rgba(46, 120, 242, 0.22);
+  --shadow-focus-danger: 0 0 0 4px rgba(229, 86, 86, 0.22);
+  --shadow-inset: inset 0 1px 2px rgba(20, 24, 34, 0.06);
+
+  /* ---------- Motion ---------- */
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-emphasis: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:       cubic-bezier(0.5, 0, 0.85, 0.4);
+  --duration-fast:    140ms;
+  --duration-normal:  220ms;
+  --duration-slow:    360ms;
+}
+
+/* =====================================================================
+   Semantic typography components
+   ===================================================================== */
+
+html, body {
+  font-family: var(--font-body);
+  font-size: var(--fs-base);
+  line-height: var(--lh-normal);
+  color: var(--fg-default);
+  background: var(--bg-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.sk-display, h1.sk-display {
+  font-family: var(--font-display);
+  font-weight: var(--fw-display);
+  font-size: var(--fs-5xl);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg-primary);
+}
+
+.sk-h1, h1 {
+  font-family: var(--font-display);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-4xl);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg-primary);
+}
+
+.sk-h2, h2 {
+  font-family: var(--font-display);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-3xl);
+  line-height: var(--lh-snug);
+  letter-spacing: var(--tracking-snug);
+  color: var(--fg-primary);
+}
+
+.sk-h3, h3 {
+  font-family: var(--font-display);
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-2xl);
+  line-height: var(--lh-snug);
+  letter-spacing: var(--tracking-snug);
+  color: var(--fg-primary);
+}
+
+.sk-h4, h4 {
+  font-family: var(--font-body);
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-xl);
+  line-height: var(--lh-snug);
+  color: var(--fg-primary);
+}
+
+.sk-h5, h5 {
+  font-family: var(--font-body);
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-lg);
+  line-height: var(--lh-snug);
+  color: var(--fg-primary);
+}
+
+.sk-h6, h6 {
+  font-family: var(--font-body);
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-md);
+  line-height: var(--lh-snug);
+  color: var(--fg-primary);
+}
+
+.sk-body, p {
+  font-size: var(--fs-base);
+  line-height: var(--lh-relaxed);
+  color: var(--fg-default);
+}
+
+.sk-lead {
+  font-size: var(--fs-lg);
+  line-height: var(--lh-relaxed);
+  color: var(--fg-secondary);
+  font-weight: var(--fw-regular);
+}
+
+.sk-small, small {
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+  color: var(--fg-secondary);
+}
+
+.sk-overline {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-secondary);
+}
+
+.sk-caption {
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+  color: var(--fg-muted);
+}
+
+.sk-mono, code, kbd {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  background: var(--bg-subtle);
+  padding: 0.1em 0.35em;
+  border-radius: var(--radius-xs);
+}

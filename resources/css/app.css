@@ -1,0 +1,102 @@
+@import 'tailwindcss';
+
+@source '../views';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+
+@custom-variant compact (@media (width < 900px));
+
+@theme {
+    --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Bricolage Grotesque', ui-sans-serif, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+    /* Primary "Guardian" blue */
+    --color-guardian-50: #eaf2ff;
+    --color-guardian-100: #d2e1fe;
+    --color-guardian-200: #a6c3fd;
+    --color-guardian-300: #79a4fc;
+    --color-guardian-400: #4d86f4;
+    --color-guardian-500: #2e78f2;
+    --color-guardian-600: #1f5fcb;
+    --color-guardian-700: #1a4da8;
+    --color-guardian-800: #163d85;
+    --color-guardian-900: #112d63;
+
+    /* Accent "Embrace" coral */
+    --color-embrace-50: #fff1ec;
+    --color-embrace-100: #ffdfd2;
+    --color-embrace-200: #ffc0a8;
+    --color-embrace-300: #fba079;
+    --color-embrace-400: #f4895f;
+    --color-embrace-500: #f08661;
+    --color-embrace-600: #d86b45;
+    --color-embrace-700: #b0532f;
+    --color-embrace-800: #823c21;
+
+    /* Status */
+    --color-success-50: #e7f8ef;
+    --color-success-100: #c6efd7;
+    --color-success-500: #29a871;
+    --color-success-600: #1e8859;
+    --color-success-700: #176a45;
+
+    --color-warning-50: #fff6e0;
+    --color-warning-100: #ffe6a8;
+    --color-warning-500: #f2b33f;
+    --color-warning-600: #d08f20;
+    --color-warning-700: #966200;
+
+    --color-danger-50: #fdecec;
+    --color-danger-100: #facbcb;
+    --color-danger-500: #e55656;
+    --color-danger-600: #c13838;
+    --color-danger-700: #962727;
+
+    /* Neutrals */
+    --color-ink-0: #ffffff;
+    --color-ink-25: #fafbfd;
+    --color-ink-50: #f4f6fa;
+    --color-ink-100: #e8ecf3;
+    --color-ink-200: #d4dae5;
+    --color-ink-300: #b6becc;
+    --color-ink-400: #8e97a8;
+    --color-ink-500: #6a7385;
+    --color-ink-600: #4b5364;
+    --color-ink-700: #353b49;
+    --color-ink-800: #232834;
+    --color-ink-900: #141822;
+
+    --radius-xs: 4px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --radius-2xl: 24px;
+    --radius-3xl: 32px;
+
+    --shadow-xs: 0 1px 2px rgba(20, 24, 34, 0.04);
+    --shadow-sm: 0 2px 4px rgba(20, 24, 34, 0.05), 0 1px 2px rgba(20, 24, 34, 0.04);
+    --shadow-md: 0 6px 14px rgba(20, 24, 34, 0.07), 0 2px 4px rgba(20, 24, 34, 0.04);
+    --shadow-lg: 0 14px 32px rgba(20, 24, 34, 0.09), 0 4px 8px rgba(20, 24, 34, 0.04);
+    --shadow-xl: 0 24px 48px rgba(20, 24, 34, 0.12), 0 8px 16px rgba(20, 24, 34, 0.06);
+    --shadow-focus: 0 0 0 4px rgba(46, 120, 242, 0.22);
+    --inset-shadow-soft: inset 0 1px 2px rgba(20, 24, 34, 0.06);
+
+    --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --ease-emphasis: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer base {
+    html,
+    body {
+        @apply bg-ink-25 font-sans text-[15px] leading-normal text-ink-700 antialiased;
+    }
+
+    a {
+        @apply text-guardian-600 hover:text-guardian-700 hover:underline;
+    }
+
+    [x-cloak] {
+        display: none !important;
+    }
+}

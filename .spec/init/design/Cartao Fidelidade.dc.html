@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>Cartão Fidelidade · Policlínica</title>
+<link rel="stylesheet" href="./colors_and_type.css">
+<style>
+body{margin:0;background:var(--bg-page)}
+*{box-sizing:border-box}
+a{color:var(--fg-link);text-decoration:none}
+a:hover{color:var(--guardian-700);text-decoration:underline}
+input,select,button{font-family:var(--font-body)}
+td,th{text-align:left}
+</style>
+</helmet>
+<div style="display:flex;min-height:100vh;font-family:var(--font-body);color:var(--fg-default)">
+
+  <aside style="width:{{ sideW }};flex:none;background:var(--bg-surface);border-right:1px solid var(--border-subtle);position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:20px;padding:20px 12px;overflow-y:auto">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 8px">
+      <div style="width:36px;height:36px;flex:none;border-radius:var(--radius-md);background:var(--guardian-500);color:#fff;display:flex;align-items:center;justify-content:center">
+        <span style="width:20px;height:20px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.469.0/icons/heart-pulse.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.469.0/icons/heart-pulse.svg) center/contain no-repeat"></span>
+      </div>
+      <sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;line-height:1.15">
+          <span style="font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--fg-primary);letter-spacing:-0.01em">Policlínica</span>
+          <span style="font-size:12px;color:var(--fg-secondary)">Cartão fidelidade</span>
+        </div>
+      </sc-if>
+    </div>
+    <nav style="display:flex;flex-direction:column;gap:16px">
+      <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="4">
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}">
+            <div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--fg-muted);padding:0 12px 6px">{{ g.title }}</div>
+          </sc-if>
+          <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3">
+            <button onClick="{{ it.go }}" title="{{ it.label }}" style="display:flex;align-items:center;gap:12px;min-height:40px;padding:0 12px;border:0;border-radius:var(--radius-md);background:{{ it.bg }};color:{{ it.fg }};font-size:14px;font-weight:{{ it.fw }};cursor:pointer;text-align:left;transition:background 220ms var(--ease-standard)" style-hover="background:var(--ink-50)">
+              <span style="width:18px;height:18px;flex:none;background:currentColor;-webkit-mask:{{ it.mask }} center/contain no-repeat;mask:{{ it.mask }} center/contain no-repeat"></span>
+              <sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}"><span style="flex:1">{{ it.label }}</span></sc-if>
+              <sc-if value="{{ it.hasCount }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;font-weight:700;background:var(--danger-50);color:var(--danger-700);padding:2px 8px;border-radius:var(--radius-pill)">{{ it.count }}</span></sc-if>
+            </button>
+          </sc-for>
+        </div>
+      </sc-for>
+    </nav>
+  </aside>
+
+  <main style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <header style="position:sticky;top:0;z-index:5;background:rgba(255,255,255,0.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:16px;padding:14px 32px;flex-wrap:wrap">
+      <div style="flex:1;min-width:180px;display:flex;flex-direction:column">
+        <span style="font-size:12px;color:var(--fg-secondary)">{{ crumb }}</span>
+        <h1 style="margin:0;font-family:var(--font-display);font-size:24px;font-weight:700;letter-spacing:-0.02em;color:var(--fg-primary);line-height:1.2">{{ title }}</h1>
+      </div>
+      <button onClick="{{ goConsulta }}" style="display:flex;align-items:center;gap:10px;height:40px;padding:0 14px;min-width:240px;border:1px solid var(--border-default);border-radius:var(--radius-pill);background:var(--bg-surface);color:var(--fg-muted);font-size:14px;cursor:pointer;box-shadow:var(--shadow-inset)">
+        <span style="width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.469.0/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.469.0/icons/search.svg) center/contain no-repeat"></span>
+        <span style="flex:1;text-align:left">Nome, CPF ou cartão</span>
+        <span style="font-family:var(--font-mono);font-size:11px;background:var(--bg-subtle);padding:2px 6px;border-radius:var(--radius-xs)">F2</span>
+      </button>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--role-parent-bg);color:var(--role-parent-fg);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">{{ userInitials }}</div>
+        <div style="display:flex;flex-direction:column;line-height:1.2">
+          <span style="font-size:13px;font-weight:600;color:var(--fg-primary)">{{ userName }}</span>
+          <span style="font-size:12px;color:var(--fg-secondary)">{{ roleLabel }}</span>
+        </div>
+      </div>
+    </header>
+
+    <div style="padding:28px 32px 64px;max-width:1280px;width:100%;display:flex;flex-direction:column;gap:24px">
+
+      <!-- PAINEL -->
+      <sc-if value="{{ is.painel }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:24px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+            <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="8">
+              <div style="background:var(--bg-surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:20px;display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;align-items:center;gap:10px;color:var(--fg-secondary);font-size:13px;font-weight:500">
+                  <span style="width:32px;height:32px;border-radius:var(--radius-md);background:{{ k.tint }};color:{{ k.ink }};display:flex;align-items:center;justify-content:center">
+                    <span style="width:16px;height:16px;background:currentColor;-webkit-mask:{{ k.mask }} center/contain no-repeat;mask:{{ k.mask }} center/contain no-repeat"></span>
+                  </span>
+                  {{ k.label }}
+                </div>
+                <div style="font-family:var(--font-display);font-size:28px;font-weight:700;letter-spacing:-0.02em;color:var(--fg-primary);line-height:1.1">{{ k.value }}</div>
+                <div style="font-size:12px;color:{{ k.noteFg }};font-weight:{{ k.noteFw }}">{{ k.note }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:16px">
+            <div style="background:var(--bg-surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:20px;display:flex;flex-direction:column;gap:20px">
+              <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+                <h2 style="margin:0;flex:1;font-family:var(--font-body);font-size:17px;font-weight:600;color:var(--fg-primary)">Receita x despesa · últimos 12 meses</h2>
+                <div style="display:flex;gap:14px;font-size:12px;color:var(--fg-secondary)">
+                  <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:var(--guardian-500)"></span>Receita</span>
+                  <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:var(--embrace-300)"></span>Despesa</span>
+                </div>
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:8px;height:180px;border-bottom:1px solid var(--border-subtle)">
+                <sc-for list="{{ chart }}" as="c" hint-placeholder-count="12">
+                  <div title="{{ c.tip }}" style="flex:1;display:flex;align-items:flex-end;justify-content:center;gap:3px;height:100%">
+                    <div style="width:42%;max-width:14px;height:{{ c.hr }};background:var(--guardian-500);border-radius:4px 4px 0 0"></div>
+                    <div style="width:42%;max-width:14px;height:{{ c.hd }};background:var(--embrace-300);border-radius:4px 4px 0 0"></div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:-12px">
+                <sc-for list="{{ chart }}" as="c" hint-placeholder-count="12">
+                  <div style="flex:1;text-align:center;font-size:11px;color:var(--fg-muted)">{{ c.m }}</div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="background:var(--bg-surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:20px;display:flex;flex-direction:column;gap:12px">
+              <div style="display:flex;align-items:center">
+                <h2 style="margin:0;flex:1;font-family:var(--font-body);font-size:17px;font-weight:600;color:var(--fg-primary)">Maiores atrasos</h2>
+                <button onClick="{{ goInad }}" style="border:0;background:none;color:var(--fg-link);font-weight:600;font-size:13px;cursor:pointer">Ver inadimplentes →</button>
+              </div>
+              <sc-for list="{{ delinquents5 }}" as="d" hint-placeholder-count="5">
+                <button onClick="{{ d.open }}" style="display:flex;align-items:center;gap:12px;padding:10px 8px;border:0;border-top:1px solid var(--border-subtle);background:none;cursor:pointer;text-align:left;border-radius:var(--radius-sm)" style-hover="background:var(--ink-50)">
+                  <div style="width:36px;height:36px;border-radius:50%;background:var(--ink-100);color:var(--ink-600);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex:none">{{ d.initials }}</div>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+                    <span style="font-size:14px;font-weight:600;color:var(--fg-primary)">{{ d.name }}</span>
+                    <span style="font-size:12px;color:var(--fg-secondary)">{{ d.meta }}</span>
+                  </div>
+                  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+                    <span style="font-size:14px;font-weight:700;color:var(--fg-primary)">{{ d.total }}</span>
+                    <span style="font-size:12px;font-weight:600;color:var(--danger-600)">{{ d.daysLabel }}</span>
+                  </div>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="background:var(--bg-surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:20px;display:flex;flex-direction:column;gap:8px">
+            <h2 style="margin:0 0 8px;font-family:var(--font-body);font-size:17px;font-weight:600;color:var(--fg-primary)">Últimos pagamentos</h2>
+            <div style="overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:14px;min-width:600px">
+                <thead><tr style="color:var(--fg-secondary);font-size:12px"><th style="padding:8px;font-weight:600">Recibo</th><th style="padding:8px;font-weight:600">Cliente</th><th style="padding:8px;font-weight:600">Referência</th><th style="padding:8px;font-weight:600">Forma</th><th style="padding:8px;font-weight:600">Data</th><th style="padding:8px;font-weight:600;text-align:right">Valor</th></tr></thead>
+                <tbody>
+                  <sc-for list="{{ lastPayments }}" as="p" hint-placeholder-count="5">
+                    <tr style="border-top:1px solid var(--border-subtle)">
+                      <td style="padding:12px 8px;font-family:var(--font-mono);font-size:13px;color:var(--fg-secondary)">{{ p.receipt }}</td>
+                      <td style="padding:12px 8px;font-weight:600;color:var(--fg-primary)">{{ p.name }}</td>
+                      <td style="padding:12px 8px">{{ p.ref }}</td>
+                      <td style="padding:12px 8px">{{ p.method }}</td>
+                      <td style="padding:12px 8px">{{ p.date }}</td>
+                      <td style="padding:12px 8px;text-align:right;font-weight:600;color:var(--fg-primary)">{{ p.amount }}</td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- CONSULTA RÁPIDA -->
+      <sc-if value="{{ is.consulta }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:20px;max-width:880px;width:100%;margin:0 auto">
+          <div style="display:flex;align-items:center;gap:14px;height:64px;padding:0 22px;background:var(--bg-surface);border:2px solid var(--guardian-500);border-radius:var(--radius-pill);box-shadow:var(--shadow-focus)">
+            <span style="width:22px;height:22px;flex:none;color:var(--guardian-500);background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.469.0/icons/scan-line.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.469.0/icons/scan-line.svg) center/contain no-repeat"></span>
+            <input autofocus="autofocus" value="{{ query }}" onChange="{{ onQuery }}" placeholder="Digite o nome, CPF ou passe o cartão no leitor" style="flex:1;min-width:0;border:0;outline:none;background:none;font-size:19px;color:var(--fg-primary)">
+            <sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ clearQuery }}" style="border:0;background:var(--ink-50);color:var(--fg-secondary);border-radius:var(--radius-pill);height:32px;padding:0 12px;font-size:13px;font-weight:600;cursor:pointer">Limpar</button>
+            </sc-if>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--fg-secondary);align-items:center">
+            <span>Experimente:</span>
+            <sc-for list="{{ examples }}" as="ex" hint-placeholder-count="4">
+              <button onClick="{{ ex.go }}" style="border:1px solid var(--border-default);background:var(--bg-surface);border-radius:var(--radius-pill);height:30px;padding:0 12px;font-family:var(--font-mono);font-size:12px;color:var(--fg-default);cursor:pointer">{{ ex.q }}</button>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--bg-surface);border-radius:var(--radius-2xl);box-shadow:var(--shadow-sm);padding:40px;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center">
+              <span style="font-size:17px;font-weight:600;color:var(--fg-primary)">Nenhum cliente encontrado</span>
+              <span style="font-size:14px;color:var(--fg-secondary)">Confira o número do cartão ou busque pelo CPF.</span>
+            </div>
+          </sc-if>
+
+          <sc-for list="{{ results }}" as="r" hint-placeholder-count="1">
+            <div style="background:var(--bg-surface);border-radius:var(--radius-2xl);box-shadow:var(--shadow-md);overflow:hidden">
+              <sc-if value="{{ r.replacedNote }}" hint-placeholder-val="{{ false }}">
+                <div style="background:var(--warning-50);color:var(--warning-700);font-size:13px;font-weight:600;padding:10px 24px">{{ r.replacedNote }}</div>
+              </sc-if>
+              <div style="padding:24px;display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+                <div style="flex:1;min-width:260px;display:flex;flex-direction:column;gap:6px">
+                  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                    <span style="font-family:var(--font-display);font-size:26px;font-weight:700;letter-spacing:-0.02em;color:var(--fg-primary);line-height:1.2">{{ r.name }}</span>
+                  </div>
+                  <span style="font-size:14px;color:var(--fg-secondary)">{{ r.sub }}</span>
+                  <sc-if value="{{ r.matchDep }}" hint-placeholder-val="{{ false }}">
+                    <span style="font-size:14px;color:var(--guardian-700);font-weight:600">{{ r.matchDep }}</span>
+                  </sc-if>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 28px;border-radius:var(--radius-xl);background:{{ r.st.bg }};color:{{ r.st.fg }}">
+                  <span style="font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase">Cartão {{ r.card }}</span>
+                  <span style="font-family:var(--font-display);font-size:32px;font-weight:800;letter-spacing:-0.02em;line-height:1">{{ r.st.label }}</span>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));border-top:1px solid var(--border-subtle)">
+                <div style="padding:16px 24px;display:flex;flex-direction:column;gap:2px;border-right:1px solid var(--border-subtle)">
+                  <span style="font-size:12px;color:var(--fg-secondary)">Plano</span>
+                  <span style="font-size:15px;font-weight:600;color:var(--fg-primary)">{{ r.planLabel }}</span>
+                </div>
+                <div style="padding:16px 24px;display:flex;flex-direction:column;gap:2px;border-right:1px solid var(--border-subtle)">
+                  <span style="font-size:12px;color:var(--fg-secondary)">Próxima mensalidade</span>
+                  <span style="font-size:15px;font-weight:600;color:var(--fg-primary)">{{ r.next }}</span>
+                </div>
+                <div style="padding:16px 24px;display:flex;flex-direction:column;gap:2px">
+                  <span style="font-size:12px;color:var(--fg-secondary)">Pendências</span>
+                  <span style="font-size:15px;font-weight:600;color:{{ r.pendFg }}">{{ r.pend }}</span>
+                </div>
+              </div>
+              <sc-if value="{{ r.hasDeps }}" hint-placeholder-val="{{ false }}">
+                <div style="border-top:1px solid var(--border-subtle);padding:16px 24px;display:flex;flex-direction:column;gap:10px">
+                  <span style="font-size:12px;color:var(--fg-secondary)">Dependentes · usam o mesmo cartão</span>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <sc-for list="{{ r.deps }}" as="dp" hint-placeholder-count="2">
+                      <span style="display:flex;align-items:center;gap:8px;background:var(--bg-subtle);border-radius:var(--radius-pill);padding:6px 14px;font-size:13px"><span style="font-family:var(--font-mono);font-size:12px;color:var(--fg-secondary)">{{ dp.id }}</span><span style="font-weight:600;color:var(--fg-primary)">{{ dp.name }}</span><span style="color:var(--fg-secondary)">{{ dp.kin }}</span></span>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+              <div style="border-top:1px solid var(--border-subtle);padding:16px 24px;display:flex;gap:10px;flex-wrap:wrap;background:var(--ink-25)">
+                <button onClick="{{ r.open }}" style="height:44px;padding:0 20px;border:0;border-radius:var(--radius-pill);background:var(--guardian-500);color:#fff;font-weight:600;font-size:14px;cursor:pointer" style-hover="background:var(--guardian-600)">Abrir ficha</button>
+                <sc-if value="{{ r.canPay }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ r.pay }}" style="height:44px;padding:0 20px;border:1px solid var(--border-default);border-radius:var(--radius-pill);background:var(--bg-surface);color:var(--fg-primary);font-weight:600;font-size:14px;cursor:pointer" style-hover="background:var(--ink-50)">Registrar pagamento</button>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- CLIENTES -->
+      <sc-if value="{{ is.clientes }}" hint-placeholder-val="{{ false }}">
+        <div style="background:var(--bg-surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:20px;display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <input value="{{ listQuery }}" onChange="{{ onListQuery }}" placeholder="Buscar por nome, CPF ou cartão" style="flex:1;min-width:220px;height:44px;padding:0 16px;border:1px solid var(--border-default);border-radius:var(--radius-md);font-size:14px;outline:none;box-shadow:var(--shadow-inset)">
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <sc-for list="{{ statusFilters }}" as="f" hint-placeholder-count="4">
+                <button onClick="{{ f.go }}" style="height:36px;padding:0 14px;border-radius:var(--radius-pill);border:1px solid {{ f.bd }};background:{{ f.bg }};color:{{ f.fg }};font-size:13px;font-weight:600;cursor:pointer">{{ f.label }}</button>
+              </sc-for>
+            </div>
+            <button onClick="{{ newCustomer }}" style="height:44px;padding:0 20px;border:0;border-radius:var(--radius-pill);background:var(--guardian-500);color:#fff;font-weight:600;font-size:14px;cursor:pointer" style-hover="background:var(--guardian-600)">Novo cliente</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:14px;min-width:760px">
+              <thead><tr style="color:var(--fg-secondary);font-size:12px"><th style="padding:8px;font-weight:600">Cartão</th><th style="padding:8px;font-weight:600">Nome</th><th style="padding:8px;font-weight:600">CPF</th><th style="padding:8px;font-weight:600">Plano</th><th style="padding:8px;font-weight:600">Dependentes</th><th style="padding:8px;font-weight:600">Status</th></tr></thead>
+              <tbody>
+                <sc-for list="{{ customerRows }}" as="c" hint-placeholder-count="8">
+                  <tr onClick="{{ c.open }}" style="border-top:1px solid var(--border-subtle);cursor:pointer" style-hover="background:var(--ink-25)">
+                    <td style="padding:14px 8px;font-family:var(--font-mono);font-size:13px">{{ c.card }}</td>
+                    <td style="padding:14px 8px;font-weight:600;color:var(--fg-primary)">{{ c.name }}</td>
+                    <td style="padding:14px 8px;font-family:var(--font-mono);font-size:13px;color:var(--fg-secondary)">{{ c.cpfMask }}</td>
+                    <td style="padding:14px 8px">{{ c.plan }}</td>
+                    <td style="padding:14px 8px">{{ c.depsLabel }}</td>
+                    <td style="padding:14px 8px"><span style="display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:var(--radius-pill);background:{{ c.st.bg }};color:{{ c.st.fg }};font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>{{ c.st.label }}</span></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+          <div style="font-size:13px;color:var(--fg-secondary)">{{ customerCount }}</div>
+        </div>
+      </sc-if>
+
+      <!-- FICHA DO CLIENTE -->
+      <sc-if value="{{ is.ficha }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div style="background:var(--bg-surface);border-radius:var(--radius-2xl);box-shadow:var(--shadow-md);padding:24px;display:flex;gap:24px;flex-wrap:wrap;align-items:center">
+            <div style="width:64px;height:64px;border-radius:50%;background:var(--role-parent-bg);color:var(--role-parent-fg);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:22px;font-weight:700;flex:none">{{ cur.initials }}</div>
+            <div style="flex:1;min-width:240px;display:flex;flex-direction:column;gap:4px">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <span style="font-family:var(--font-display);font-size:26px;font-weight:700;letter-spacing:-0.02em;color:var(--fg-primary);line-height:1.2">{{ cur.name }}</span>
+                <span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 12px;border-radius:var(--radius-pill);background:{{ cur.st.bg }};color:{{ cur.st.fg }};font-size:13px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>{{ cur.st.label }}</span>
+              </div>
+              <span style="font-size:14px;color:var(--fg-secondary)">{{ cur.sub }}</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button onClick="{{ openReplace }}" style="height:44px;padding:0 18px;border:1px solid var(--border-default);border-radius:var(--radius-pill);background:var(--bg-surface);color:var(--fg-primary);font-weight:600;font-size:14px;cursor:pointer" style-hover="background:var(--ink-50)">Segunda via</button>
+              <button onClick="{{ changePlan }}" style="height:44px;padding:0 18px;border:1px solid var(--border-default);border-radius:var(--radius-pill);background:var(--bg-surface);color:var(--fg-primary);font-weight:600;font-size:14px;cursor:pointer" style-hover="background:var(--ink-50)">Trocar plano</button>
+              <sc-if value="{{ cur.canPay }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ cur.pay }}" style="height:44px;padding:0 20px;border:0;border-radius:var(--radius-pill);background:var(--guardian-500);color:#fff;font-weight:600;font-size:14px;cursor:pointer" style-hover="background:var(--guardian-600)">Registrar pagamento</button>
+              </sc-if>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:4px;border-bottom:1px solid var(--border-subtle);overflow-x:auto">
+            <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+              <button onClick="{{ t.go }}" style="height:44px;padding:0 16px;border:0;background:none;border-bottom:2px solid {{ t.bd }};color:{{ t.fg }};font-weight:600;font-size:14px;cursor:pointer;white-space:nowrap">{{ t.label }}</button>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ tab.resumo }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:16px">
+              <div style="background:var(--guardian-50);border-radius:var(--radius-2xl);padding:24px;display:flex;flex-direction:column;gap:18px">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span style="font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--guardian-700);flex:1">Cartão vigente</span>
+                  <span style="font-size:12px;color:var(--guardian-700)">desde {{ cur.assigned }}</span>
+                </div>
+                <div style="font-family:var(--font-mono);font-size:36px;font-weight:600;letter-spacing:0.08em;color:var(--guardian-900)">{{ cur.card }}</div>
+                <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:14px">
+                  <div style="display:flex;flex-direction:column"><span style="font-size:12px;color:var(--guardian-700)">Plano</span><span style="font-weight:600;color:var(--guardian-900)">{{ cur.planLabel }}</span></div>
+                  <div style="display:flex;flex-direction:column"><span style="font-size:12px;color:var(--guardian-700)">Vencimento</span><span style="font-weight:600;color:var(--guardian-900)">Todo dia {{ cur.due }}</span></div>
+                  <div style="display:flex;flex-direction:column"><span style="font-size:12px;color:var(--guardian-700)">Dependentes</span><span style="font-weight:600;color:var(--guardian-900)">{{ cur.depsUsage }}</span></div>
+                </div>
+                <sc-if value="{{ cur.hasOld }}" hint-placeholder-val="{{ false }}">
+                  <div style="border-top:1px solid var(--guardian-100);padding-top:14px;display:flex;flex-direction:column;gap:6px">
+                    <span style="font-size:12px;color:var(--guardian-700)">Cartões anteriores</span>
+                    <sc-for list="{{ cur.oldCards }}" as="oc" hint-placeholder-count="1">
+                      <div style="display:flex;gap:10px;font-size:13px;align-items:center"><span style="font-family:var(--font-mono);color:var(--guardian-900);text-decoration:line-through">{{ oc.number }}</span><span style="color:var(--guardian-700)">{{ oc.note }}</span></div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <sc-if value="{{ cur.canSuspend }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ suspend }}" style="height:40px;padding:0 16px;border:0;border-radius:var(--radius-pill);background:var(--bg-surface);color:var(--warning-700);font-weight:600;font-size:13px;cursor:pointer">Suspender</button>
+                  </sc-if>
+                  <sc-if value="{{ cur.canReactivate }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ reactivate }}" style="height:40px;padding:0 16px;border:0;border-radius:var(--radius-pill);background:var(--bg-surface);color:var(--success-700);font-weight:600;font-size:13px;cursor:pointer">Reativar</button>
+                  </sc-if>
+                  <sc-if value="{{ cur.canCancel }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ cancelCard }}" style="height:40px;padding:0 16px;border:0;border-radius:var(--radius-pill);background:var(--bg-surface);color:var(--danger-600);font-weight:600;font-size:13px;cursor:pointer">Cancelar cartão</button>
+                  </sc-if>
+                </div>
+              </div>
+              <div style="background:var(--bg-surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:20px;display:flex;flex-direction:column;gap:2px">
+                <h3 style="margin:0 0 10px;font-family:var(--font-body);font-size:17px;font-weight:600;color:var(--fg-primary)">Dados do titular</h3>
+                <sc-for list="{{ cur.fields }}" as="f" hint-placeholder-count="6">
+                  <div style="display:grid;grid-template-columns:130px minmax(0,1fr);gap:12px;padding:10px 0;border-top:1px solid var(--border-subtle);font-size:14px">
+                    <span style="color:var(--fg-secondary)">{{ f.k }}</span>
+                    <span style="color:var(--fg-primary);font-weight:500">{{ f.v }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ tab.dependentes }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--bg-surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:20px;display:flex;flex-direction:column;gap:12px">
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                <span style="flex:1;font-size:14px;color:var(--fg-secondary)">{{ cur.depsUsageLong }}</span>
+                <button onClick="{{ addDep }}" style="height:40px;padding:0 18px;border:0;border-radius:var(--radius-pill);background:{{ cur.addDepBg }};color:{{ cur.addDepFg }};font-weight:600;font-size:14px;cursor:pointer">Adicionar dependente</button>
+              </div>
+              <sc-if value="{{ cur.noDeps }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:32px;text-align:center;color:var(--fg-secondary);font-size:14px;background:var(--bg-subtle);border-radius:var(--radius-md)">O plano Individual não inclui dependentes. Troque para o Familiar para adicionar.</div>
+              </sc-if>
+              <sc-for list="{{ cur.depsList }}" as="dp" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:14px;padding:12px 0;border-top:1px solid var(--border-subtle)">
+                  <div style="width:40px;height:40px;border-radius:50%;background:var(--embrace-50);color:var(--embrace-700);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex:none">{{ dp.initials }}</div>
+                  <div style="flex:1;display:flex;flex-direction:column">
+                    <span style="font-weight:600;color:var(--fg-primary);font-size:14px">{{ dp.name }}</span>
+                    <span style="font-size:12px;color:var(--fg-secondary)">{{ dp.kin }} · nasc. {{ dp.birth }}</span>
+                  </div>
+                  <span style="font-family:var(--font-mono);font-size:13px;background:var(--bg-subtle);padding:4px 10px;border-radius:var(--radius-sm)">{{ dp.id }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ tab.mensalidades }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--bg-surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:20px;overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:14px;min-width:620px">
+                <thead><tr style="color:var(--fg-secondary);font-size:12px"><th style="padding:8px;font-weight:600">Referência</th><th style="padding:8px;font-weight:600">Vencimento</th><th style="padding:8px;font-weight:600">Valor</th><th style="padding:8px;font-weight:600">Status</th><th style="padding:8px"></th></tr></thead>
+                <tbody>
+                  <sc-for list="{{ cur.invoices }}" as="iv" hint-placeholder-count="4">
+                    <tr style="border-top:1px solid var(--border-subtle)">
+                      <td style="padding:12px 8px;font-weight:600;color:var(--fg-primary)">{{ iv.ref }}</td>
+                      <td style="padding:12px 8px">{{ iv.due }}</td>
+                      <td style="padding:12px 8px">{{ iv.amountLabel }}</td>
+                      <td style="padding:12px 8px"><span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:var(--radius-pill);background:{{ iv.st.bg }};color:{{ iv.st.fg }};font-size:12px;font-weight:600">{{ iv.stLabel }}</span></td>
+                      <td style="padding:12px 8px;text-align:right">
+                        <sc-if value="{{ iv.payable }}" hint-placeholder-val="{{ false }}"><button onClick="{{ iv.pay }}" style="height:36px;padding:0 14px;border:0;border-radius:var(--radius-pill);background:var(--guardian-50);color:var(--guardian-700);font-weight:600;font-size:13px;cursor:pointer">Dar baixa</button></sc-if>
+                        <sc-if value="{{ iv.paidFlag }}" hint-placeholder-val="{{ false }}"><button onClick="{{ printReceipt }}" style="height:36px;padding:0 14px;border:0;border-radius:var(--radius-pill);background:none;color:var(--fg-link);font-weight:600;font-size:13px;cursor:pointer">Recibo</button></sc-if>
+                      </td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ tab.historico }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--bg-surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:24px;display:flex;flex-direction:column">
+              <sc-for list="{{ cur.timeline }}" as="ev" hint-placeholder-count="5">
+                <div style="display:grid;grid-template-columns:96px 20px minmax(0,1fr);gap:12px">
+                  <span style="font-size:12px;color:var(--fg-secondary);padding-top:2px;text-align:right">{{ ev.date }}</span>
+                  <div style="display:flex;flex-direction:column;align-items:center">
+                    <span style="width:12px;height:12px;border-radius:50%;background:{{ ev.dot }};margin-top:4px;flex:none"></span>
+                    <span style="width:2px;flex:1;background:var(--border-subtle);min-height:20px"></span>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:2px;padding-bottom:20px">
+                    <span style="font-size:14px;font-weight:600;color:var(--fg-primary)">{{ ev.title }}</span>
+                    <span style="font-size:13px;color:var(--fg-secondary)">{{ ev.desc }}</span>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ tab.observacoes }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--bg-surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:20px;display:flex;flex-direction:column;gap:14px">
+              <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <input value="{{ noteDraft }}" onChange="{{ onNote }}" placeholder="Escreva uma observação sobre o cliente" style="flex:1;min-width:220px;height:44px;padding:0 16px;border:1px solid var(--border-default);border-radius:var(--radius-md);font-size:14px;outline:none">
+                <button onClick="{{ addNote }}" style="height:44px;padding:0 20px;border:0;border-radius:var(--radius-pill);background:var(--guardian-500);color:#fff;font-weight:600;font-size:14px;cursor:pointer">Adicionar</button>
+              </div>
+              <sc-for list="{{ cur.notes }}" as="n" hint-placeholder-count="2">
+                <div style="background:var(--bg-subtle);border-radius:var(--radius-md);padding:14px 16px;display:flex;flex-direction:column;gap:4px">
+                  <span style="font-size:14px;color:var(--fg-primary)">{{ n.body }}</span>
+                  <span style="font-size:12px;color:var(--fg-secondary)">{{ n.meta }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <!-- PLANOS -->
+      <sc-if value="{{ is.planos }}" hint-placeholder-val="{{ false }}">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
+          <sc-for list="{{ plans }}" as="p" hint-placeholder-count="3">
+            <div style="background:var(--bg-surface);border-radius:var(--radius-2xl);box-shadow:var(--shadow-sm);padding:24px;display:flex;flex-direction:column;gap:14px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="flex:1;font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--fg-primary)">{{ p.name }}</span>
+                <span style="font-size:12px;font-weight:600;color:var(--success-700);background:var(--success-50);padding:3px 10px;border-radius:var(--radius-pill)">Ativo</span>
+              </div>
+              <div style="display:flex;align-items:baseline;gap:4px"><span style="font-family:var(--font-display);font-size:36px;font-weight:700;letter-spacing:-0.02em;color:var(--fg-primary)">{{ p.priceLabel }}</span><span style="color:var(--fg-secondary);font-size:14px">/mês</span></div>
+              <div style="display:flex;flex-direction:column;gap:6px;font-size:14px;border-top:1px solid var(--border-subtle);padding-top:14px">
+                <span>{{ p.depsLabel }}</span>
+                <span style="color:var(--fg-secondary)">{{ p.subs }}</span>
+              </div>
+              <button onClick="{{ editPlan }}" style="height:40px;border:1px solid var(--border-default);border-radius:var(--radius-pill);background:var(--bg-surface);font-weight:600;font-size:14px;color:var(--fg-primary);cursor:pointer">Editar</button>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- ESTOQUE -->
+      <sc-if value="{{ is.estoque }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
+            <div style="background:var(--warning-50);border-radius:var(--radius-lg);padding:20px;display:flex;flex-direction:column;gap:6px">
+              <span style="font-size:13px;font-weight:600;color:var(--warning-700)">Em estoque</span>
+              <span style="font-family:var(--font-display);font-size:32px;font-weight:700;color:var(--fg-primary);line-height:1.1">38</span>
+              <span style="font-size:12px;font-weight:600;color:var(--warning-700)">Abaixo do mínimo de 50. Peça um novo lote.</span>
+            </div>
+            <div style="background:var(--bg-surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:20px;display:flex;flex-direction:column;gap:6px">
+              <span style="font-size:13px;font-weight:500;color:var(--fg-secondary)">Vinculados</span>
+              <span style="font-family:var(--font-display);font-size:32px;font-weight:700;color:var(--fg-primary);line-height:1.1">447</span>
+              <span style="font-size:12px;color:var(--fg-secondary)">412 ativos · 35 suspensos</span>
+            </div>
+            <div style="background:var(--bg-surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:20px;display:flex;flex-direction:column;gap:6px">
+              <span style="font-size:13px;font-weight:500;color:var(--fg-secondary)">Extraviados / inutilizados</span>
+              <span style="font-family:var(--font-display);font-size:32px;font-weight:700;color:var(--fg-primary);line-height:1.1">15</span>
+              <span style="font-size:12px;color:var(--fg-secondary)">Não voltam ao estoque</span>
+            </div>
+          </div>
+          <div style="background:var(--bg-surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:20px;display:flex;flex-direction:column;gap:16px">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <div style="display:flex;gap:4px;background:var(--bg-subtle);padding:4px;border-radius:var(--radius-pill)">
+                <sc-for list="{{ stockTabs }}" as="t" hint-placeholder-count="2">
+                  <button onClick="{{ t.go }}" style="height:34px;padding:0 16px;border:0;border-radius:var(--radius-pill);background:{{ t.bg }};color:{{ t.fg }};box-shadow:{{ t.sh }};font-weight:600;font-size:13px;cursor:pointer">{{ t.label }}</button>
+                </sc-for>
+              </div>
+              <span style="flex:1"></span>
+              <button onClick="{{ newBatch }}" style="height:44px;padding:0 20px;border:0;border-radius:var(--radius-pill);background:var(--guardian-500);color:#fff;font-weight:600;font-size:14px;cursor:pointer" style-hover="background:var(--guardian-600)">Cadastrar lote</button>
+            </div>
+            <sc-if value="{{ stockIsCards }}" hint-placeholder-val="{{ true }}">
+              <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;font-size:14px;min-width:680px">
+                  <thead><tr style="color:var(--fg-secondary);font-size:12px"><th style="padding:8px;font-weight:600">Número</th><th style="padding:8px;font-weight:600">Lote</th><th style="padding:8px;font-weight:600">Status</th><th style="padding:8px;font-weight:600">Cliente</th><th style="padding:8px;font-weight:600">Data</th><th style="padding:8px"></th></tr></thead>
+                  <tbody>
+                    <sc-for list="{{ stockRows }}" as="s" hint-placeholder-count="10">
+                      <tr style="border-top:1px solid var(--border-subtle)">
+                        <td style="padding:12px 8px;font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--fg-primary)">{{ s.number }}</td>
+                        <td style="padding:12px 8px;color:var(--fg-secondary)">{{ s.batch }}</td>
+                        <td style="padding:12px 8px"><span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:var(--radius-pill);background:{{ s.st.bg }};color:{{ s.st.fg }};font-size:12px;font-weight:600">{{ s.st.label }}</span></td>
+                        <td style="padding:12px 8px">{{ s.customer }}</td>
+                        <td style="padding:12px 8px;color:var(--fg-secondary)">{{ s.date }}</td>
+                        <td style="padding:12px 8px;text-align:right"><sc-if value="{{ s.inStock }}" hint-placeholder-val="{{ false }}"><button onClick="{{ s.discard }}" style="height:32px;padding:0 12px;border:0;border-radius:var(--radius-pill);background:none;color:var(--fg-secondary);font-weight:600;font-size:13px;cursor:pointer" style-hover="background:var(--ink-50)">Inutilizar</button></sc-if></td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+            </sc-if>
+            <sc-if value="{{ stockIsBatches }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column">
+                <sc-for list="{{ batches }}" as="b" hint-placeholder-count="3">
+                  <div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(160px,1.2fr);gap:16px;align-items:center;padding:16px 4px;border-top:1px solid var(--border-subtle)">
+                    <div style="display:flex;flex-direction:column"><span style="font-weight:600;color:var(--fg-primary);font-size:14px">{{ b.desc }}</span><span style="font-size:12px;color:var(--fg-secondary)">{{ b.meta }}</span></div>
+                    <span style="font-family:var(--font-mono);font-size:13px;color:var(--fg-secondary)">{{ b.range }}</span>
+                    <div style="display:flex;flex-direction:column;gap:6px">
+                      <div style="height:8px;border-radius:var(--radius-pill);background:var(--ink-100);overflow:hidden"><div style="height:100%;width:{{ b.pct }};background:var(--guardian-500);border-radius:var(--radius-pill)"></div></div>
+                      <span style="font-size:12px;color:var(--fg-secondary)">{{ b.usage }}</span>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- FATURAMENTO -->
+      <sc-if value="{{ is.faturamento }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
+            <sc-for list="{{ billSummary }}" as="b" hint-placeholder-count="4">
+              <div style="background:var(--bg-surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:20px;display:flex;flex-direction:column;gap:6px">
+                <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--fg-secondary)"><span style="width:8px;height:8px;border-radius:50%;background:{{ b.dot }}"></span>{{ b.label }}</span>
+                <span style="font-family:var(--font-display);font-size:26px;font-weight:700;color:var(--fg-primary);line-height:1.15;letter-spacing:-0.01em">{{ b.value }}</span>
+                <span style="font-size:12px;color:var(--fg-secondary)">{{ b.note }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="background:var(--bg-surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:20px;display:flex;flex-direction:column;gap:16px">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <div style="height:40px;padding:0 14px;border:1px solid var(--border-default);border-radius:var(--radius-md);display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--fg-primary)">
+                <span style="width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.469.0/icons/calendar.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.469.0/icons/calendar.svg) center/contain no-repeat"></span>
+                Vencimento · ago a out/2026
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <sc-for list="{{ billFilters }}" as="f" hint-placeholder-count="4">
+                  <button onClick="{{ f.go }}" style="height:36px;padding:0 14px;border-radius:var(--radius-pill);border:1px solid {{ f.bd }};background:{{ f.bg }};color:{{ f.fg }};font-size:13px;font-weight:600;cursor:pointer">{{ f.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div style="overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:14px;min-width:820px">
+                <thead><tr style="color:var(--fg-secondary);font-size:12px"><th style="padding:8px;font-weight:600">Cliente</th><th style="padding:8px;font-weight:600">Cartão</th><th style="padding:8px;font-weight:600">Referência</th><th style="padding:8px;font-weight:600">Vencimento</th><th style="padding:8px;font-weight:600">Valor</th><th style="padding:8px;font-weight:600">Status</th><th style="padding:8px"></th></tr></thead>
+                <tbody>
+                  <sc-for list="{{ billRows }}" as="iv" hint-placeholder-count="8">
+                    <tr style="border-top:1px solid var(--border-subtle)">
+                      <td style="padding:12px 8px"><button onClick="{{ iv.open }}" style="border:0;background:none;padding:0;font-weight:600;font-size:14px;color:var(--fg-primary);cursor:pointer;text-align:left">{{ iv.name }}</button></td>
+                      <td style="padding:12px 8px;font-family:var(--font-mono);font-size:13px">{{ iv.card }}</td>
+                      <td style="padding:12px 8px">{{ iv.ref }}</td>
+                      <td style="padding:12px 8px">{{ iv.due }}</td>
+                      <td style="padding:12px 8px;font-weight:600;color:var(--fg-primary)">{{ iv.amountLabel }}</td>
+                      <td style="padding:12px 8px"><span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:var(--radius-pill);background:{{ iv.st.bg }};color:{{ iv.st.fg }};font-size:12px;font-weight:600;white-space:nowrap">{{ iv.stLabel }}</span></td>
+                      <td style="padding:12px 8px;text-align:right">
+                        <sc-if value="{{ iv.payable }}" hint-placeholder-val="{{ false }}"><button onClick="{{ iv.pay }}" style="height:36px;padding:0 14px;border:0;border-radius:var(--radius-pill);background:var(--guardian-50);color:var(--guardian-700);font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap" style-hover="background:var(--guardian-100)">Registrar pagamento</button></sc-if>
+                        <sc-if value="{{ iv.paidFlag }}" hint-placeholder-val="{{ false }}"><button onClick="{{ printReceipt }}" style="height:36px;padding:0 14px;border:0;border-radius:var(--radius-pill);background:none;color:var(--fg-link);font-weight:600;font-size:13px;cursor:pointer">Recibo</button></sc-if>
+                      </td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- INADIMPLENTES -->
+      <sc-if value="{{ is.inadimplentes }}" hint-placeholder-val="{{ false }}">
+        <div style="background:var(--bg-surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:20px;display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <span style="flex:1;font-size:14px;color:var(--fg-secondary)">{{ inadSummary }}</span>
+            <button onClick="{{ exportPdf }}" style="height:40px;padding:0 16px;border:1px solid var(--border-default);border-radius:var(--radius-pill);background:var(--bg-surface);font-weight:600;font-size:13px;color:var(--fg-primary);cursor:pointer">Exportar PDF</button>
+            <button onClick="{{ exportXls }}" style="height:40px;padding:0 16px;border:1px solid var(--border-default);border-radius:var(--radius-pill);background:var(--bg-surface);font-weight:600;font-size:13px;color:var(--fg-primary);cursor:pointer">Exportar Excel</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:14px;min-width:760px">
+              <thead><tr style="color:var(--fg-secondary);font-size:12px"><th style="padding:8px;font-weight:600">Titular</th><th style="padding:8px;font-weight:600">WhatsApp</th><th style="padding:8px;font-weight:600">Faturas</th><th style="padding:8px;font-weight:600">Total</th><th style="padding:8px;font-weight:600">Maior atraso</th><th style="padding:8px;font-weight:600">Cartão</th></tr></thead>
+              <tbody>
+                <sc-for list="{{ delinquents }}" as="d" hint-placeholder-count="4">
+                  <tr style="border-top:1px solid var(--border-subtle)">
+                    <td style="padding:12px 8px"><button onClick="{{ d.open }}" style="border:0;background:none;padding:0;font-weight:600;font-size:14px;color:var(--fg-primary);cursor:pointer;text-align:left">{{ d.name }}</button></td>
+                    <td style="padding:12px 8px"><a href="{{ d.wa }}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--success-700)"><span style="width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.469.0/icons/message-circle.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.469.0/icons/message-circle.svg) center/contain no-repeat"></span>{{ d.phone }}</a></td>
+                    <td style="padding:12px 8px">{{ d.count }}</td>
+                    <td style="padding:12px 8px;font-weight:600;color:var(--fg-primary)">{{ d.total }}</td>
+                    <td style="padding:12px 8px;font-weight:600;color:var(--danger-600)">{{ d.daysLabel }}</td>
+                    <td style="padding:12px 8px"><span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:var(--radius-pill);background:{{ d.st.bg }};color:{{ d.st.fg }};font-size:12px;font-weight:600">{{ d.st.label }}</span></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- TELAS NÃO INCLUÍDAS -->
+      <sc-if value="{{ is.other }}" hint-placeholder-val="{{ false }}">
+        <div style="background:var(--bg-surface);border-radius:var(--radius-2xl);box-shadow:var(--shadow-sm);padding:56px 24px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center">
+          <span style="font-size:17px;font-weight:600;color:var(--fg-primary)">Esta tela ainda não foi desenhada</span>
+          <span style="font-size:14px;color:var(--fg-secondary);max-width:420px">Este protótipo cobre atendimento, cartões e faturamento. Peça para desenhar o módulo financeiro em seguida.</span>
+          <button onClick="{{ goPainel }}" style="margin-top:12px;height:44px;padding:0 20px;border:0;border-radius:var(--radius-pill);background:var(--guardian-500);color:#fff;font-weight:600;font-size:14px;cursor:pointer">Voltar ao painel</button>
+        </div>
+      </sc-if>
+    </div>
+  </main>
+
+  <!-- MODAL PAGAMENTO -->
+  <sc-if value="{{ payOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:fixed;inset:0;background:rgba(20,24,34,0.4);z-index:20;display:flex;align-items:center;justify-content:center;padding:24px">
+      <div onClick="{{ stop }}" style="width:100%;max-width:480px;background:var(--bg-surface);border-radius:var(--radius-2xl);box-shadow:var(--shadow-xl);display:flex;flex-direction:column">
+        <div style="padding:24px 24px 0;display:flex;flex-direction:column;gap:4px">
+          <span style="font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--fg-primary)">Registrar pagamento</span>
+          <span style="font-size:14px;color:var(--fg-secondary)">{{ pay.sub }}</span>
+        </div>
+        <div style="padding:20px 24px;display:flex;flex-direction:column;gap:16px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--fg-primary)">Data do pagamento
+              <input value="{{ pay.date }}" onChange="{{ onPayDate }}" style="height:44px;padding:0 14px;border:1px solid var(--border-default);border-radius:var(--radius-md);font-size:15px;font-weight:400;outline:none">
+            </label>
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--fg-primary)">Valor recebido
+              <input value="{{ pay.amount }}" onChange="{{ onPayAmount }}" style="height:44px;padding:0 14px;border:1px solid var(--border-default);border-radius:var(--radius-md);font-size:15px;font-weight:400;outline:none">
+            </label>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <span style="font-size:13px;font-weight:600;color:var(--fg-primary)">Forma de pagamento</span>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+              <sc-for list="{{ methods }}" as="m" hint-placeholder-count="4">
+                <button onClick="{{ m.go }}" style="height:44px;border-radius:var(--radius-md);border:1px solid {{ m.bd }};background:{{ m.bg }};color:{{ m.fg }};font-weight:600;font-size:14px;cursor:pointer">{{ m.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+          <sc-if value="{{ pay.reactivates }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--success-50);color:var(--success-700);border-radius:var(--radius-md);padding:12px 14px;font-size:13px;font-weight:600">O cartão está suspenso. Com este pagamento, ele será reativado.</div>
+          </sc-if>
+        </div>
+        <div style="padding:16px 24px 24px;display:flex;gap:10px;justify-content:flex-end">
+          <button onClick="{{ closeModal }}" style="height:44px;padding:0 18px;border:0;border-radius:var(--radius-pill);background:none;color:var(--fg-secondary);font-weight:600;font-size:14px;cursor:pointer">Cancelar</button>
+          <button onClick="{{ confirmPay }}" style="height:44px;padding:0 22px;border:0;border-radius:var(--radius-pill);background:var(--guardian-500);color:#fff;font-weight:600;font-size:14px;cursor:pointer" style-hover="background:var(--guardian-600)">Confirmar baixa</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- MODAL SEGUNDA VIA -->
+  <sc-if value="{{ replaceOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:fixed;inset:0;background:rgba(20,24,34,0.4);z-index:20;display:flex;align-items:center;justify-content:center;padding:24px">
+      <div onClick="{{ stop }}" style="width:100%;max-width:480px;background:var(--bg-surface);border-radius:var(--radius-2xl);box-shadow:var(--shadow-xl);display:flex;flex-direction:column">
+        <div style="padding:24px 24px 0;display:flex;flex-direction:column;gap:4px">
+          <span style="font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--fg-primary)">Segunda via do cartão</span>
+          <span style="font-size:14px;color:var(--fg-secondary)">{{ rep.sub }}</span>
+        </div>
+        <div style="padding:20px 24px;display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <span style="font-size:13px;font-weight:600;color:var(--fg-primary)">Motivo</span>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <sc-for list="{{ reasons }}" as="m" hint-placeholder-count="2">
+                <button onClick="{{ m.go }}" style="height:44px;border-radius:var(--radius-md);border:1px solid {{ m.bd }};background:{{ m.bg }};color:{{ m.fg }};font-weight:600;font-size:14px;cursor:pointer">{{ m.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--fg-primary)">Número do novo cartão
+            <input value="{{ rep.number }}" onChange="{{ onRepNumber }}" placeholder="Digite ou passe no leitor" style="height:52px;padding:0 16px;border:1px solid var(--border-default);border-radius:var(--radius-md);font-family:var(--font-mono);font-size:20px;letter-spacing:0.08em;font-weight:500;outline:none">
+          </label>
+          <sc-if value="{{ rep.hasCheck }}" hint-placeholder-val="{{ false }}">
+            <div style="background:{{ rep.check.bg }};color:{{ rep.check.fg }};border-radius:var(--radius-md);padding:12px 14px;font-size:13px;font-weight:600">{{ rep.check.label }}</div>
+          </sc-if>
+          <span style="font-size:12px;color:var(--fg-secondary)">Em estoque agora: 000180, 000181, 000182. O novo cartão herda o status do atual.</span>
+        </div>
+        <div style="padding:16px 24px 24px;display:flex;gap:10px;justify-content:flex-end">
+          <button onClick="{{ closeModal }}" style="height:44px;padding:0 18px;border:0;border-radius:var(--radius-pill);background:none;color:var(--fg-secondary);font-weight:600;font-size:14px;cursor:pointer">Cancelar</button>
+          <button onClick="{{ confirmReplace }}" style="height:44px;padding:0 22px;border:0;border-radius:var(--radius-pill);background:var(--guardian-500);color:#fff;font-weight:600;font-size:14px;cursor:pointer;opacity:{{ rep.btnOpacity }}">Vincular novo cartão</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- TOAST -->
+  <sc-if value="{{ toastOn }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;right:24px;bottom:24px;z-index:30;background:var(--bg-inverse);color:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow-xl);padding:14px 16px 14px 20px;display:flex;align-items:center;gap:16px;max-width:440px">
+      <div style="display:flex;flex-direction:column;gap:2px;flex:1">
+        <span style="font-size:14px;font-weight:600">{{ toast.title }}</span>
+        <sc-if value="{{ toast.desc }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--ink-300)">{{ toast.desc }}</span></sc-if>
+      </div>
+      <sc-if value="{{ toast.receipt }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ printReceipt }}" style="height:36px;padding:0 14px;border:0;border-radius:var(--radius-pill);background:var(--guardian-500);color:#fff;font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap">Imprimir recibo</button>
+      </sc-if>
+      <button onClick="{{ hideToast }}" style="width:32px;height:32px;border:0;background:none;color:var(--ink-300);font-size:18px;cursor:pointer">×</button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;role&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Recepção&quot;,&quot;Financeiro&quot;,&quot;Admin&quot;],&quot;default&quot;:&quot;Admin&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;painel&quot;,&quot;consulta&quot;,&quot;clientes&quot;,&quot;ficha&quot;,&quot;estoque&quot;,&quot;faturamento&quot;,&quot;inadimplentes&quot;],&quot;default&quot;:&quot;painel&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+const ICON = n => `url(https://unpkg.com/lucide-static@0.469.0/icons/${n}.svg)`;
+const TONES = {green:['var(--success-50)','var(--success-700)'],amber:['var(--warning-50)','var(--warning-700)'],red:['var(--danger-50)','var(--danger-700)'],blue:['var(--guardian-50)','var(--guardian-700)'],gray:['var(--ink-100)','var(--ink-600)']};
+const CARD_ST = {active:['Ativo','green'],suspended:['Suspenso','amber'],cancelled:['Cancelado','red'],in_stock:['Em estoque','blue'],lost:['Extraviado','gray'],discarded:['Inutilizado','gray']};
+const INV_ST = {paid:['Pago','green'],open:['Em aberto','blue'],overdue:['Em atraso','red'],cancelled:['Cancelada','gray']};
+const badge = (map, k) => { const [label, t] = map[k]; return { label, bg: TONES[t][0], fg: TONES[t][1] }; };
+const money = v => 'R$ ' + Number(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+const initials = n => n.split(' ').filter(w => w.length > 2).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+const PLANS = { Individual: { price: 49.9, max: 0, subs: 238 }, Familiar: { price: 89.9, max: 4, subs: 171 }, 'Familiar Plus': { price: 129.9, max: 7, subs: 38 } };
+const CUSTOMERS = [
+  { id: 1, name: 'Maria Aparecida Souza', cpf: '123.456.789-09', card: '000123', old: [{ number: '000087', note: 'Extraviado em 03/06/2025' }], plan: 'Familiar', status: 'active', phone: '(11) 98765-4321', email: 'maria.souza@email.com', birth: '22/07/1979', address: 'Rua das Acácias, 245 · Vila Mariana · São Paulo/SP', due: 10, joined: '14/02/2024', assigned: '03/06/2025', deps: [{ name: 'Carlos Henrique Souza', kin: 'Cônjuge', birth: '03/05/1977' }, { name: 'Lívia Souza', kin: 'Filho(a)', birth: '18/09/2012' }, { name: 'Pedro Souza', kin: 'Filho(a)', birth: '02/01/2016' }] },
+  { id: 2, name: 'José Ribeiro dos Santos', cpf: '987.654.321-00', card: '000124', old: [], plan: 'Individual', status: 'suspended', phone: '(11) 99654-1122', email: '', birth: '10/11/1958', address: 'Av. Brasil, 1020 · Centro · Guarulhos/SP', due: 10, joined: '20/02/2024', assigned: '20/02/2024', deps: [] },
+  { id: 3, name: 'Ana Clara Ferreira', cpf: '321.654.987-11', card: '000131', old: [], plan: 'Familiar', status: 'active', phone: '(11) 97412-3344', email: 'anaclara@email.com', birth: '05/03/1990', address: 'Rua Tupi, 88 · Santana · São Paulo/SP', due: 1, joined: '08/04/2024', assigned: '08/04/2024', deps: [{ name: 'Rafael Ferreira', kin: 'Cônjuge', birth: '14/08/1988' }, { name: 'Sofia Ferreira', kin: 'Filho(a)', birth: '30/06/2019' }] },
+  { id: 4, name: 'Roberto Lima Carvalho', cpf: '456.789.123-22', card: '000140', old: [], plan: 'Familiar Plus', status: 'active', phone: '(11) 98123-7788', email: 'roberto.lc@email.com', birth: '19/01/1972', address: 'Rua Bahia, 412 · Higienópolis · São Paulo/SP', due: 5, joined: '11/05/2024', assigned: '11/05/2024', deps: [{ name: 'Helena Carvalho', kin: 'Cônjuge', birth: '02/02/1974' }, { name: 'Lucas Carvalho', kin: 'Filho(a)', birth: '21/10/2003' }, { name: 'Marina Carvalho', kin: 'Filho(a)', birth: '07/07/2008' }, { name: 'Dona Célia Lima', kin: 'Mãe', birth: '15/03/1948' }, { name: 'Seu Jorge Lima', kin: 'Pai', birth: '28/12/1946' }] },
+  { id: 5, name: 'Francisca das Chagas Oliveira', cpf: '159.753.486-33', card: '000152', old: [], plan: 'Individual', status: 'suspended', phone: '(11) 96321-4455', email: '', birth: '01/09/1965', address: 'Rua São Jorge, 17 · Itaquera · São Paulo/SP', due: 5, joined: '02/07/2024', assigned: '02/07/2024', deps: [] },
+  { id: 6, name: 'Antônio Marcos Pereira', cpf: '753.951.852-44', card: '000158', old: [], plan: 'Familiar', status: 'active', phone: '(11) 99877-6655', email: 'amarcos@email.com', birth: '12/12/1983', address: 'Rua Pará, 300 · Mooca · São Paulo/SP', due: 20, joined: '15/08/2024', assigned: '15/08/2024', deps: [{ name: 'Beatriz Pereira', kin: 'Filho(a)', birth: '09/04/2011' }] },
+  { id: 7, name: 'Juliana Mendes Rocha', cpf: '852.456.951-55', card: '000163', old: [], plan: 'Individual', status: 'cancelled', phone: '(11) 95544-3322', email: 'ju.rocha@email.com', birth: '25/05/1995', address: 'Rua Augusta, 1500 · Consolação · São Paulo/SP', due: 15, joined: '03/09/2024', assigned: '03/09/2024', deps: [] },
+  { id: 8, name: 'Sebastião Alves Costa', cpf: '369.258.147-66', card: '000171', old: [], plan: 'Familiar', status: 'active', phone: '(11) 98800-1199', email: '', birth: '30/04/1960', address: 'Rua Piauí, 55 · Penha · São Paulo/SP', due: 15, joined: '21/01/2025', assigned: '21/01/2025', deps: [{ name: 'Rosa Alves Costa', kin: 'Cônjuge', birth: '11/11/1962' }] }
+];
+const INVOICES = [
+  { id: 101, cid: 1, ref: '10/2026', due: '10/10/2026', amount: 89.9, status: 'open', days: 0 },
+  { id: 102, cid: 2, ref: '08/2026', due: '10/08/2026', amount: 49.9, status: 'overdue', days: 55 },
+  { id: 103, cid: 2, ref: '09/2026', due: '10/09/2026', amount: 49.9, status: 'overdue', days: 24 },
+  { id: 104, cid: 3, ref: '10/2026', due: '01/10/2026', amount: 89.9, status: 'paid', days: 0 },
+  { id: 105, cid: 4, ref: '10/2026', due: '05/10/2026', amount: 129.9, status: 'paid', days: 0 },
+  { id: 106, cid: 5, ref: '08/2026', due: '05/08/2026', amount: 49.9, status: 'overdue', days: 60 },
+  { id: 107, cid: 5, ref: '09/2026', due: '05/09/2026', amount: 49.9, status: 'overdue', days: 29 },
+  { id: 108, cid: 6, ref: '09/2026', due: '20/09/2026', amount: 89.9, status: 'overdue', days: 14 },
+  { id: 109, cid: 8, ref: '10/2026', due: '15/10/2026', amount: 89.9, status: 'open', days: 0 },
+  { id: 110, cid: 2, ref: '10/2026', due: '10/10/2026', amount: 49.9, status: 'open', days: 0 },
+  { id: 111, cid: 6, ref: '10/2026', due: '20/10/2026', amount: 89.9, status: 'open', days: 0 },
+  { id: 112, cid: 1, ref: '09/2026', due: '10/09/2026', amount: 89.9, status: 'paid', days: 0 },
+  { id: 113, cid: 1, ref: '08/2026', due: '10/08/2026', amount: 89.9, status: 'paid', days: 0 }
+];
+const STOCK = [
+  { number: '000180', batch: 'Lote gráfica set/2026', status: 'in_stock', customer: '—', date: 'Recebido 12/09/2026' },
+  { number: '000181', batch: 'Lote gráfica set/2026', status: 'in_stock', customer: '—', date: 'Recebido 12/09/2026' },
+  { number: '000182', batch: 'Lote gráfica set/2026', status: 'in_stock', customer: '—', date: 'Recebido 12/09/2026' },
+  { number: '000179', batch: 'Lote gráfica set/2026', status: 'discarded', customer: '—', date: 'Inutilizado 14/09/2026' },
+  { number: '000171', batch: 'Lote gráfica jan/2025', status: 'active', customer: 'Sebastião Alves Costa', date: 'Vinculado 21/01/2025' },
+  { number: '000163', batch: 'Lote gráfica jan/2025', status: 'cancelled', customer: 'Juliana Mendes Rocha', date: 'Vinculado 03/09/2024' },
+  { number: '000158', batch: 'Lote gráfica jan/2025', status: 'active', customer: 'Antônio Marcos Pereira', date: 'Vinculado 15/08/2024' },
+  { number: '000152', batch: 'Lote gráfica fev/2024', status: 'suspended', customer: 'Francisca das Chagas Oliveira', date: 'Vinculado 02/07/2024' },
+  { number: '000124', batch: 'Lote gráfica fev/2024', status: 'suspended', customer: 'José Ribeiro dos Santos', date: 'Vinculado 20/02/2024' },
+  { number: '000087', batch: 'Lote gráfica fev/2024', status: 'lost', customer: 'Maria Aparecida Souza', date: 'Extraviado 03/06/2025' }
+];
+const NAV = [
+  { title: 'Atendimento', items: [['painel', 'Painel', 'layout-dashboard'], ['consulta', 'Consulta rápida', 'scan-line'], ['clientes', 'Clientes', 'users'], ['planos', 'Planos', 'badge-check'], ['estoque', 'Estoque de cartões', 'credit-card']] },
+  { title: 'Faturamento', items: [['faturamento', 'Mensalidades', 'receipt'], ['inadimplentes', 'Inadimplentes', 'circle-alert']] },
+  { title: 'Financeiro', items: [['lancamentos', 'Lançamentos', 'arrow-left-right'], ['pagar', 'Contas a pagar', 'arrow-up-right'], ['receber', 'Contas a receber', 'arrow-down-left'], ['fluxo', 'Fluxo de caixa', 'chart-column'], ['categorias', 'Categorias', 'tags']] },
+  { title: 'Sistema', items: [['relatorios', 'Relatórios', 'file-text'], ['config', 'Configurações', 'settings'], ['usuarios', 'Usuários', 'user-cog']] }
+];
+const HIDE = { 'Recepção': ['planos', 'lancamentos', 'pagar', 'receber', 'fluxo', 'categorias', 'relatorios', 'config', 'usuarios'], 'Financeiro': ['planos', 'config', 'usuarios'], 'Admin': [] };
+const TITLES = { painel: 'Painel', consulta: 'Consulta rápida', clientes: 'Clientes', ficha: 'Ficha do cliente', planos: 'Planos', estoque: 'Estoque de cartões', faturamento: 'Mensalidades', inadimplentes: 'Inadimplentes' };
+const CHART = [['nov', 31.2, 19.8], ['dez', 32.0, 24.1], ['jan', 32.9, 20.4], ['fev', 33.4, 19.9], ['mar', 34.1, 21.6], ['abr', 34.8, 20.2], ['mai', 35.5, 22.9], ['jun', 36.0, 20.7], ['jul', 36.4, 21.3], ['ago', 37.2, 23.4], ['set', 37.9, 20.8], ['out', 38.4, 21.2]];
+
+class Component extends DCLogic {
+  state = {
+    screen: this.props.startScreen || 'painel', curId: 1, tab: 'resumo', query: '', listQuery: '', listStatus: 'all', billStatus: 'all', stockTab: 'cards',
+    customers: CUSTOMERS.map(c => ({ ...c, notes: c.id === 1 ? [{ body: 'Prefere contato por WhatsApp no período da tarde.', meta: 'Recepção · Camila · 12/03/2026' }] : [] })),
+    invoices: INVOICES, modal: null, payId: null, payDate: '04/10/2026', payAmount: '', payMethod: 'pix', repReason: 'lost', repNumber: '', noteDraft: '', toast: null, receipt: 1042, compact: false
+  };
+  componentDidMount() {
+    this.onResize = () => this.setState({ compact: window.innerWidth < 900 });
+    this.onResize(); window.addEventListener('resize', this.onResize);
+    this.onKey = e => { if (e.key === 'F2') { e.preventDefault(); this.go('consulta'); } if (e.key === 'Escape') this.setState({ modal: null }); };
+    window.addEventListener('keydown', this.onKey);
+  }
+  componentWillUnmount() { window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); clearTimeout(this.tt); }
+  go = s => this.setState({ screen: s });
+  openCustomer = id => this.setState({ screen: 'ficha', curId: id, tab: 'resumo' });
+  notify = (title, desc, receipt) => { clearTimeout(this.tt); this.setState({ toast: { title, desc, receipt } }); this.tt = setTimeout(() => this.setState({ toast: null }), 6000); };
+  cust = id => this.state.customers.find(c => c.id === id);
+  setCust = (id, patch) => this.setState(s => ({ customers: s.customers.map(c => c.id === id ? { ...c, ...patch } : c) }));
+  openPay = inv => this.setState({ modal: 'pay', payId: inv.id, payAmount: money(inv.amount).replace('R$ ', ''), payMethod: 'pix', payDate: '04/10/2026' });
+  invsOf = cid => this.state.invoices.filter(i => i.cid === cid);
+  firstPayable = cid => this.invsOf(cid).filter(i => i.status !== 'paid').sort((a, b) => b.days - a.days)[0];
+  depsWithId = c => c.deps.map((d, i) => ({ ...d, id: `${c.card}-${String(i + 1).padStart(2, '0')}`, initials: initials(d.name) }));
+  pendOf = c => { const ov = this.invsOf(c.id).filter(i => i.status === 'overdue'); return ov.length ? { text: `${ov.length} em atraso · ${money(ov.reduce((s, i) => s + i.amount, 0))}`, fg: 'var(--danger-600)' } : { text: 'Nenhuma pendência', fg: 'var(--success-700)' }; };
+  nextOf = c => { const o = this.invsOf(c.id).find(i => i.status === 'open'); return o ? `${o.due} · ${money(o.amount)}` : '—'; };
+  invRow = iv => { const c = this.cust(iv.cid); return { ...iv, name: c.name, card: c.card, amountLabel: money(iv.amount), st: badge(INV_ST, iv.status), stLabel: iv.status === 'overdue' ? `Em atraso · ${iv.days} dias` : INV_ST[iv.status][0], payable: iv.status !== 'paid' && iv.status !== 'cancelled', paidFlag: iv.status === 'paid', pay: () => this.openPay(iv), open: () => this.openCustomer(c.id) }; };
+  confirmPay = () => {
+    const inv = this.state.invoices.find(i => i.id === this.state.payId); const c = this.cust(inv.cid);
+    const invoices = this.state.invoices.map(i => i.id === inv.id ? { ...i, status: 'paid', days: 0 } : i);
+    const still = invoices.some(i => i.cid === c.id && i.status === 'overdue' && i.days >= 30);
+    const reactivate = c.status === 'suspended' && !still;
+    const n = this.state.receipt + 1;
+    this.setState({ invoices, modal: null, receipt: n });
+    if (reactivate) this.setCust(c.id, { status: 'active' });
+    this.notify(`Pagamento registrado · recibo nº ${n}`, reactivate ? 'Cartão reativado por pagamento.' : `${c.name} · ref. ${inv.ref}`, true);
+  };
+  repCheck = () => {
+    const n = this.state.repNumber.trim(); if (!n) return null;
+    const s = STOCK.find(x => x.number === n);
+    if (s && s.status === 'in_stock') return { label: 'Disponível no estoque', bg: TONES.green[0], fg: TONES.green[1], ok: true };
+    const owner = this.state.customers.find(c => c.card === n);
+    if (owner) return { label: `Já vinculado a ${owner.name}`, bg: TONES.red[0], fg: TONES.red[1] };
+    if (s) return { label: `Cartão ${CARD_ST[s.status][0].toLowerCase()}. Não pode ser usado.`, bg: TONES.gray[0], fg: TONES.gray[1] };
+    if (n.length >= 6) return { label: 'Não cadastrado no estoque', bg: TONES.amber[0], fg: TONES.amber[1] };
+    return null;
+  };
+  confirmReplace = () => {
+    const chk = this.repCheck(); if (!chk || !chk.ok) return;
+    const c = this.cust(this.state.curId); const why = this.state.repReason === 'lost' ? 'Extraviado' : 'Inutilizado';
+    this.setCust(c.id, { card: this.state.repNumber.trim(), assigned: '04/10/2026', old: [{ number: c.card, note: `${why} em 04/10/2026` }, ...c.old] });
+    this.setState({ modal: null, repNumber: '' });
+    this.notify('Novo cartão vinculado', `${this.state.repNumber.trim()} substitui ${c.card}. Dependentes atualizados.`);
+  };
+  pill = (on) => on ? { bg: 'var(--guardian-500)', fg: '#fff', bd: 'var(--guardian-500)' } : { bg: 'var(--bg-surface)', fg: 'var(--fg-default)', bd: 'var(--border-default)' };
+  choice = (on) => on ? { bg: 'var(--guardian-50)', fg: 'var(--guardian-700)', bd: 'var(--guardian-500)' } : { bg: 'var(--bg-surface)', fg: 'var(--fg-default)', bd: 'var(--border-default)' };
+
+  renderVals() {
+    const s = this.state; const role = this.props.role || 'Admin';
+    const hidden = HIDE[role] || [];
+    let screen = s.screen; if (hidden.includes(screen)) screen = 'painel';
+    const known = ['painel', 'consulta', 'clientes', 'ficha', 'planos', 'estoque', 'faturamento', 'inadimplentes'];
+    const is = Object.fromEntries(known.map(k => [k, screen === k])); is.other = !known.includes(screen);
+    const navKey = screen === 'ficha' ? 'clientes' : screen;
+    const overdueCust = new Set(s.invoices.filter(i => i.status === 'overdue').map(i => i.cid));
+
+    const navGroups = NAV.map(g => ({ title: g.title, items: g.items.filter(([k]) => !hidden.includes(k)).map(([k, label, ic]) => {
+      const on = navKey === k;
+      return { label, mask: ICON(ic), bg: on ? 'var(--guardian-50)' : 'transparent', fg: on ? 'var(--guardian-700)' : 'var(--fg-default)', fw: on ? 600 : 500, go: () => this.go(k), hasCount: k === 'inadimplentes' && !s.compact, count: overdueCust.size };
+    }) })).filter(g => g.items.length);
+
+    const delinq = [...overdueCust].map(id => { const c = this.cust(id); const ov = this.invsOf(id).filter(i => i.status === 'overdue'); const max = Math.max(...ov.map(i => i.days)); const total = ov.reduce((a, i) => a + i.amount, 0);
+      return { name: c.name, initials: initials(c.name), phone: c.phone, wa: 'https://wa.me/55' + c.phone.replace(/\D/g, ''), count: ov.length, total: money(total), totalN: total, max, daysLabel: `${max} dias`, meta: `${ov.length} fatura${ov.length > 1 ? 's' : ''} · cartão ${c.card}`, st: badge(CARD_ST, c.status), open: () => this.openCustomer(c.id) };
+    }).sort((a, b) => b.max - a.max);
+
+    const maxV = 40;
+    const chart = CHART.map(([m, r, d]) => ({ m, hr: (r / maxV * 100) + '%', hd: (d / maxV * 100) + '%', tip: `${m}: receita R$ ${r.toFixed(1).replace('.', ',')} mil · despesa R$ ${d.toFixed(1).replace('.', ',')} mil` }));
+    const openSum = s.invoices.filter(i => i.status === 'open' || i.status === 'overdue').reduce((a, i) => a + i.amount, 0) + 5612.2;
+    const overSum = s.invoices.filter(i => i.status === 'overdue').reduce((a, i) => a + i.amount, 0) + 2534.7;
+    const kpis = [
+      { label: 'Cartões ativos', value: '412', note: '+9 neste mês', icon: 'credit-card', tone: 'blue' },
+      { label: 'Cartões em estoque', value: '38', note: 'Abaixo do mínimo de 50', icon: 'package', tone: 'amber', alert: true },
+      { label: 'Vidas atendidas', value: '1.096', note: 'Titulares + dependentes ativos', icon: 'heart-handshake', tone: 'blue' },
+      { label: 'Inadimplência', value: '7,8%', note: '35 de 447 titulares', icon: 'trending-down', tone: 'red' },
+      { label: 'Receita do mês', value: 'R$ 38.420,50', note: 'Outubro · regime de caixa', icon: 'arrow-down-left', tone: 'green' },
+      { label: 'Despesa do mês', value: 'R$ 21.180,00', note: 'Outubro · regime de caixa', icon: 'arrow-up-right', tone: 'gray' },
+      { label: 'Valor em aberto', value: money(openSum), note: 'Em aberto + em atraso', icon: 'clock', tone: 'blue' },
+      { label: 'Valor em atraso', value: money(overSum), note: 'Faturas vencidas', icon: 'circle-alert', tone: 'red' }
+    ].map(k => ({ ...k, mask: ICON(k.icon), tint: TONES[k.tone][0], ink: TONES[k.tone][1], noteFg: k.alert ? 'var(--warning-700)' : 'var(--fg-secondary)', noteFw: k.alert ? 600 : 400 }));
+
+    // consulta
+    const q = s.query.trim().toLowerCase(); const qd = q.replace(/\D/g, '');
+    const results = !q ? [] : s.customers.map(c => {
+      const deps = this.depsWithId(c);
+      const dep = deps.find(d => d.id === q);
+      const old = c.old.find(o => o.number === q);
+      const hit = dep || old || c.card === q || c.name.toLowerCase().includes(q) || (qd.length >= 3 && c.cpf.replace(/\D/g, '').includes(qd) && !/^\d{6}$/.test(q));
+      if (!hit) return null;
+      const pend = this.pendOf(c); const fp = this.firstPayable(c.id);
+      return { name: c.name, card: c.card, sub: `CPF ${c.cpf} · ${c.phone}`, st: badge(CARD_ST, c.status), planLabel: `${c.plan} · ${money(PLANS[c.plan].price)}`, next: this.nextOf(c), pend: pend.text, pendFg: pend.fg,
+        deps, hasDeps: deps.length > 0, matchDep: dep ? `Dependente encontrado: ${dep.name} (${dep.kin})` : '', replacedNote: old ? `O cartão ${old.number} foi substituído. Cartão atual: ${c.card}.` : '',
+        open: () => this.openCustomer(c.id), canPay: !!fp && c.status !== 'cancelled', pay: () => fp && this.openPay(fp) };
+    }).filter(Boolean).slice(0, 3);
+
+    // clientes
+    const lq = s.listQuery.trim().toLowerCase();
+    const custFiltered = s.customers.filter(c => (s.listStatus === 'all' || c.status === s.listStatus) && (!lq || c.name.toLowerCase().includes(lq) || c.card.includes(lq) || c.cpf.replace(/\D/g, '').includes(lq.replace(/\D/g, '') || '§')));
+    const customerRows = custFiltered.map(c => ({ card: c.card, name: c.name, cpfMask: '***.' + c.cpf.slice(4, 11) + '-**', plan: c.plan, depsLabel: c.deps.length ? String(c.deps.length) : '—', st: badge(CARD_ST, c.status), open: () => this.openCustomer(c.id) }));
+    const statusFilters = [['all', 'Todos'], ['active', 'Ativos'], ['suspended', 'Suspensos'], ['cancelled', 'Cancelados']].map(([k, label]) => ({ label, ...this.pill(s.listStatus === k), go: () => this.setState({ listStatus: k }) }));
+
+    // ficha
+    const c = this.cust(s.curId); const P = PLANS[c.plan]; const deps = this.depsWithId(c); const fp = this.firstPayable(c.id);
+    const tl = [
+      { date: '04/10/2026', title: 'Mensalidade 10/2026 gerada', desc: `${money(P.price)} · vence dia ${c.due}`, dot: 'var(--guardian-400)' },
+      ...(c.status === 'suspended' ? [{ date: '09/09/2026', title: 'Cartão suspenso', desc: 'Suspensão automática: 30 dias em atraso · sistema', dot: 'var(--warning-500)' }] : []),
+      { date: '10/09/2026', title: 'Pagamento recebido', desc: `Recibo nº 1018 · PIX · ${money(P.price)}`, dot: 'var(--success-500)' },
+      ...c.old.map(o => ({ date: o.note.slice(-10), title: 'Segunda via do cartão', desc: `${o.number} → ${c.card} · ${o.note.split(' em')[0]}`, dot: 'var(--embrace-400)' })),
+      { date: c.joined, title: 'Adesão ao plano ' + c.plan, desc: `Cartão ${c.old.length ? c.old[c.old.length - 1].number : c.card} vinculado · Recepção`, dot: 'var(--guardian-600)' }
+    ];
+    const cur = {
+      name: c.name, initials: initials(c.name), st: badge(CARD_ST, c.status), sub: `Titular desde ${c.joined} · Cartão ${c.card}`, card: c.card, assigned: c.assigned,
+      planLabel: `${c.plan} · ${money(P.price)}`, due: c.due, depsUsage: P.max ? `${deps.length} de ${P.max}` : 'Não inclui', depsUsageLong: P.max ? `${deps.length} de ${P.max} dependentes do plano ${c.plan}` : `Plano ${c.plan}`,
+      hasOld: c.old.length > 0, oldCards: c.old, canSuspend: c.status === 'active', canReactivate: c.status === 'suspended', canCancel: c.status !== 'cancelled',
+      canPay: !!fp && c.status !== 'cancelled', pay: () => fp && this.openPay(fp),
+      fields: [{ k: 'CPF', v: c.cpf }, { k: 'Nascimento', v: c.birth }, { k: 'Celular', v: c.phone }, { k: 'E-mail', v: c.email || '—' }, { k: 'Endereço', v: c.address }, { k: 'Adesão', v: c.joined }],
+      depsList: deps, noDeps: !P.max, addDepBg: deps.length < P.max ? 'var(--guardian-500)' : 'var(--ink-100)', addDepFg: deps.length < P.max ? '#fff' : 'var(--fg-muted)',
+      invoices: this.invsOf(c.id).sort((a, b) => b.ref.split('/').reverse().join('').localeCompare(a.ref.split('/').reverse().join(''))).map(this.invRow), timeline: tl, notes: c.notes
+    };
+    const tabKeys = [['resumo', 'Resumo'], ['dependentes', `Dependentes · ${deps.length}`], ['mensalidades', 'Mensalidades'], ['historico', 'Histórico'], ['observacoes', 'Observações']];
+    const tabs = tabKeys.map(([k, label]) => ({ label, bd: s.tab === k ? 'var(--guardian-500)' : 'transparent', fg: s.tab === k ? 'var(--guardian-700)' : 'var(--fg-secondary)', go: () => this.setState({ tab: k }) }));
+    const tab = Object.fromEntries(tabKeys.map(([k]) => [k, s.tab === k]));
+
+    // faturamento
+    const billRows = s.invoices.filter(i => s.billStatus === 'all' || i.status === s.billStatus).sort((a, b) => b.days - a.days).map(this.invRow);
+    const sumBy = st => s.invoices.filter(i => !st || i.status === st).reduce((a, i) => a + i.amount, 0);
+    const cnt = st => s.invoices.filter(i => i.status === st).length;
+    const billSummary = [
+      { label: 'Total do período', value: money(sumBy()), note: `${s.invoices.length} mensalidades`, dot: 'var(--ink-400)' },
+      { label: 'Pago', value: money(sumBy('paid')), note: `${cnt('paid')} mensalidades`, dot: 'var(--success-500)' },
+      { label: 'Em aberto', value: money(sumBy('open')), note: `${cnt('open')} mensalidades`, dot: 'var(--guardian-500)' },
+      { label: 'Em atraso', value: money(sumBy('overdue')), note: `${cnt('overdue')} mensalidades`, dot: 'var(--danger-500)' }
+    ];
+    const billFilters = [['all', 'Todas'], ['open', 'Em aberto'], ['overdue', 'Em atraso'], ['paid', 'Pagas']].map(([k, label]) => ({ label, ...this.pill(s.billStatus === k), go: () => this.setState({ billStatus: k }) }));
+
+    // modal
+    const pinv = s.invoices.find(i => i.id === s.payId); const pc = pinv && this.cust(pinv.cid);
+    const pay = pinv ? { sub: `${pc.name} · cartão ${pc.card} · ref. ${pinv.ref} · venc. ${pinv.due}`, date: s.payDate, amount: s.payAmount,
+      reactivates: pc.status === 'suspended' && !s.invoices.some(i => i.cid === pc.id && i.id !== pinv.id && i.status === 'overdue' && i.days >= 30) } : { sub: '', date: '', amount: '', reactivates: false };
+    const methods = [['pix', 'PIX'], ['cash', 'Dinheiro'], ['card', 'Cartão'], ['boleto', 'Boleto']].map(([k, label]) => ({ label, ...this.choice(s.payMethod === k), go: () => this.setState({ payMethod: k }) }));
+    const chk = this.repCheck();
+    const reasons = [['lost', 'Perda ou roubo'], ['discarded', 'Cartão danificado']].map(([k, label]) => ({ label, ...this.choice(s.repReason === k), go: () => this.setState({ repReason: k }) }));
+
+    const userByRole = { 'Recepção': ['Camila Rodrigues', 'CR'], 'Financeiro': ['Paulo Mendes', 'PM'], 'Admin': ['Dra. Lúcia Prado', 'LP'] }[role] || ['Camila Rodrigues', 'CR'];
+
+    return {
+      sideW: s.compact ? '72px' : '256px', showLabels: !s.compact, navGroups, is,
+      crumb: screen === 'ficha' ? 'Clientes' : (NAV.find(g => g.items.some(i => i[0] === screen)) || { title: '' }).title,
+      title: TITLES[screen] || (NAV.flatMap(g => g.items).find(i => i[0] === screen) || [0, ''])[1],
+      userName: userByRole[0], userInitials: userByRole[1], roleLabel: role,
+      goConsulta: () => this.go('consulta'), goInad: () => this.go('inadimplentes'), goPainel: () => this.go('painel'),
+      kpis, chart, delinquents5: delinq.slice(0, 5), delinquents: delinq,
+      inadSummary: `${delinq.length} titulares com faturas em atraso · ${money(delinq.reduce((a, d) => a + d.totalN, 0))} · ordenado pelo maior atraso`,
+      lastPayments: [
+        { receipt: '#' + s.receipt, name: 'Roberto Lima Carvalho', ref: '10/2026', method: 'PIX', date: '02/10/2026', amount: money(129.9) },
+        { receipt: '#' + (s.receipt - 1), name: 'Ana Clara Ferreira', ref: '10/2026', method: 'Cartão', date: '30/09/2026', amount: money(89.9) },
+        { receipt: '#' + (s.receipt - 2), name: 'Neide Batista Ramos', ref: '09/2026', method: 'Dinheiro', date: '29/09/2026', amount: money(49.9) },
+        { receipt: '#' + (s.receipt - 3), name: 'Cláudio Moura Lins', ref: '09/2026', method: 'PIX', date: '28/09/2026', amount: money(89.9) },
+        { receipt: '#' + (s.receipt - 4), name: 'Teresa Gomes Vidal', ref: '09/2026', method: 'Boleto', date: '27/09/2026', amount: money(129.9) }
+      ],
+      query: s.query, hasQuery: !!s.query, onQuery: e => this.setState({ query: e.target.value }), clearQuery: () => this.setState({ query: '' }),
+      examples: ['000123', '000123-02', '000087', 'José'].map(x => ({ q: x, go: () => this.setState({ query: x }) })),
+      results, noResults: !!q && results.length === 0,
+      listQuery: s.listQuery, onListQuery: e => this.setState({ listQuery: e.target.value }), statusFilters, customerRows,
+      customerCount: `${customerRows.length} de 447 titulares`, newCustomer: () => this.notify('Cadastro de cliente', 'Tela de cadastro ainda não desenhada neste protótipo.'),
+      cur, tabs, tab,
+      openReplace: () => this.setState({ modal: 'replace', repNumber: '', repReason: 'lost' }),
+      changePlan: () => this.notify('Troca de plano', 'O novo valor vale a partir da próxima mensalidade.'),
+      suspend: () => { this.setCust(c.id, { status: 'suspended' }); this.notify('Cartão suspenso', `${c.name} · dependentes também suspensos.`); },
+      reactivate: () => { this.setCust(c.id, { status: 'active' }); this.notify('Cartão reativado', c.name); },
+      cancelCard: () => { this.setCust(c.id, { status: 'cancelled' }); this.notify('Cartão cancelado', 'Não gera mais mensalidades e não volta ao estoque.'); },
+      addDep: () => deps.length < P.max ? this.notify('Novo dependente', `Identificação ${c.card}-${String(deps.length + 1).padStart(2, '0')}`) : this.notify('Limite de dependentes atingido', P.max ? `O plano ${c.plan} permite até ${P.max}.` : 'O plano Individual não inclui dependentes.'),
+      noteDraft: s.noteDraft, onNote: e => this.setState({ noteDraft: e.target.value }),
+      addNote: () => { if (!s.noteDraft.trim()) return; this.setCust(c.id, { notes: [{ body: s.noteDraft.trim(), meta: `${role} · ${userByRole[0].split(' ')[0]} · agora` }, ...c.notes] }); this.setState({ noteDraft: '' }); },
+      plans: Object.entries(PLANS).map(([name, p]) => ({ name, priceLabel: money(p.price), depsLabel: p.max ? `Até ${p.max} dependentes` : 'Sem dependentes', subs: `${p.subs} titulares ativos` })),
+      editPlan: () => this.notify('Editar plano', 'Alterações valem para as próximas mensalidades.'),
+      stockTabs: [['cards', 'Cartões'], ['batches', 'Lotes']].map(([k, label]) => ({ label, bg: s.stockTab === k ? 'var(--bg-surface)' : 'transparent', fg: s.stockTab === k ? 'var(--fg-primary)' : 'var(--fg-secondary)', sh: s.stockTab === k ? 'var(--shadow-sm)' : 'none', go: () => this.setState({ stockTab: k }) })),
+      stockIsCards: s.stockTab === 'cards', stockIsBatches: s.stockTab === 'batches',
+      stockRows: STOCK.map(x => ({ ...x, st: badge(CARD_ST, x.status), inStock: x.status === 'in_stock', discard: () => this.notify('Inutilizar cartão ' + x.number, 'Informe o motivo para confirmar.') })),
+      batches: [
+        { desc: 'Lote gráfica set/2026', meta: 'Gráfica Impressul · recebido 12/09/2026', range: '000172 – 000221', pct: '24%', usage: '12 vinculados · 37 disponíveis · 1 inutilizado' },
+        { desc: 'Lote gráfica jan/2025', meta: 'Gráfica Impressul · recebido 08/01/2025', range: '000101 – 000171', pct: '100%', usage: '71 de 71 usados' },
+        { desc: 'Lote gráfica fev/2024', meta: 'Gráfica Central · recebido 10/02/2024', range: '000001 – 000100', pct: '100%', usage: '100 de 100 usados' }
+      ],
+      newBatch: () => this.notify('Cadastrar lote', 'Por faixa (000222 a 000721) ou lista CSV, com prévia antes de confirmar.'),
+      billSummary, billFilters, billRows,
+      exportPdf: () => this.notify('Gerando PDF de inadimplentes'), exportXls: () => this.notify('Gerando planilha de inadimplentes'),
+      payOpen: s.modal === 'pay' && !!pinv, replaceOpen: s.modal === 'replace', pay, methods,
+      onPayDate: e => this.setState({ payDate: e.target.value }), onPayAmount: e => this.setState({ payAmount: e.target.value }),
+      confirmPay: this.confirmPay, closeModal: () => this.setState({ modal: null }), stop: e => e.stopPropagation(),
+      rep: { sub: `${c.name} · cartão atual ${c.card}`, number: s.repNumber, hasCheck: !!chk, check: chk || {}, btnOpacity: chk && chk.ok ? 1 : 0.4 },
+      reasons, onRepNumber: e => this.setState({ repNumber: e.target.value }), confirmReplace: this.confirmReplace,
+      toastOn: !!s.toast, toast: s.toast || {}, hideToast: () => this.setState({ toast: null }),
+      printReceipt: () => this.notify('Abrindo recibo em PDF', `Recibo nº ${s.receipt}`)
+    };
+  }
+}
+</script>
+</body>
+</html>
