@@ -2,16 +2,69 @@
 
 namespace App\Support;
 
+use Carbon\CarbonInterface;
 use Illuminate\Support\Str;
 
 class Format
 {
     /**
      * Format a monetary value as Brazilian Real, e.g. "R$ 1.234,56".
+     *
+     * Decimal strings (Eloquent `decimal:2` casts) are formatted digit by digit,
+     * so the amount never goes through a float.
      */
     public static function money(float|int|string $value): string
     {
-        return 'R$ '.number_format((float) $value, 2, ',', '.');
+        $decimal = is_float($value) ? number_format($value, 2, '.', '') : trim((string) $value);
+        $negative = str_starts_with($decimal, '-');
+
+        [$integer, $cents] = array_pad(explode('.', ltrim($decimal, '+-'), 2), 2, '');
+
+        $integer = ltrim(preg_replace('/\D/', '', $integer), '0') ?: '0';
+        $cents = substr(str_pad(preg_replace('/\D/', '', $cents), 2, '0'), 0, 2);
+        $thousands = strrev(implode('.', str_split(strrev($integer), 3)));
+
+        return 'R$ '.($negative ? '-' : '').$thousands.','.$cents;
+    }
+
+    /**
+     * Format a date as "d/m/Y", or an em dash when there is none.
+     */
+    public static function date(?CarbonInterface $date): string
+    {
+        return $date?->format('d/m/Y') ?? '—';
+    }
+
+    /**
+     * Format a Brazilian phone: "(11) 98765-4321" (mobile) or "(11) 3456-7890" (landline).
+     */
+    public static function phone(string $digits): string
+    {
+        $digits = self::digits($digits);
+
+        return match (strlen($digits)) {
+            11 => '('.substr($digits, 0, 2).') '.substr($digits, 2, 5).'-'.substr($digits, 7),
+            10 => '('.substr($digits, 0, 2).') '.substr($digits, 2, 4).'-'.substr($digits, 6),
+            default => $digits,
+        };
+    }
+
+    /**
+     * WhatsApp link for a Brazilian phone, e.g. "https://wa.me/5511987654321".
+     */
+    public static function whatsappUrl(string $phone): string
+    {
+        return 'https://wa.me/55'.self::digits($phone);
+    }
+
+    /**
+     * Format a CEP as "01234-567".
+     */
+    public static function zip(string $zip): string
+    {
+        $digits = self::digits($zip);
+
+        return strlen($digits) === 8 ? substr($digits, 0, 5).'-'.substr($digits, 5) : $digits;
     }
 
     /**
@@ -19,7 +72,7 @@ class Format
      */
     public static function maskCpf(string $cpf): string
     {
-        $digits = preg_replace('/\D/', '', $cpf);
+        $digits = self::digits($cpf);
 
         return '***.'.substr($digits, 3, 3).'.'.substr($digits, 6, 3).'-**';
     }
@@ -29,7 +82,7 @@ class Format
      */
     public static function cpf(string $cpf): string
     {
-        $digits = preg_replace('/\D/', '', $cpf);
+        $digits = self::digits($cpf);
 
         return substr($digits, 0, 3).'.'.substr($digits, 3, 3).'.'.substr($digits, 6, 3).'-'.substr($digits, 9, 2);
     }
@@ -47,5 +100,13 @@ class Format
             ->implode('');
 
         return mb_strtoupper($initials);
+    }
+
+    /**
+     * Keep only the digits of a value.
+     */
+    private static function digits(string $value): string
+    {
+        return preg_replace('/\D/', '', $value);
     }
 }

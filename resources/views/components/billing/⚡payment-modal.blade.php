@@ -78,7 +78,6 @@ new class extends Component
             'notify',
             title: "Pagamento registrado · recibo nº {$receipt}",
             description: $reactivates ? 'Cartão reativado por pagamento.' : "{$context['customer']['name']} · ref. {$context['invoice']['ref']}",
-            receipt: $receipt,
         );
 
         $this->close();

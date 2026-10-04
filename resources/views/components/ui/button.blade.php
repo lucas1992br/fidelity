@@ -7,7 +7,7 @@
 
 @php
     $classes = [
-        'inline-flex items-center justify-center gap-2 rounded-full font-semibold whitespace-nowrap no-underline transition-colors duration-200 ease-standard cursor-pointer hover:no-underline disabled:cursor-not-allowed disabled:opacity-40',
+        'inline-flex items-center justify-center gap-2 rounded-full font-semibold whitespace-nowrap no-underline outline-none focus-visible:shadow-focus transition-colors duration-200 ease-standard cursor-pointer hover:no-underline disabled:cursor-not-allowed disabled:opacity-40',
         match ($size) {
             'sm' => 'h-9 px-3.5 text-[13px]',
             'md' => 'h-10 px-4 text-[13px]',
