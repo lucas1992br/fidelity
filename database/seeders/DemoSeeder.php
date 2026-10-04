@@ -67,7 +67,7 @@ class DemoSeeder extends Seeder
     public function run(): void
     {
         if (Customer::withTrashed()->exists()) {
-            $this->command?->warn('Customers already exist; skipping the demo data.');
+            $this->command->warn('Customers already exist; skipping the demo data.');
 
             return;
         }

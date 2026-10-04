@@ -16,6 +16,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -56,6 +57,16 @@ new class extends Component
         if (! array_key_exists($this->tab, self::TABS)) {
             $this->tab = 'resumo';
         }
+    }
+
+    /**
+     * Reload the holder after a card action of the sheet modals.
+     */
+    #[On('customer-card-updated')]
+    public function refreshCard(): void
+    {
+        $this->customer->refresh();
+        unset($this->card, $this->cardStatus, $this->payableInvoice, $this->canRegisterPayment, $this->previousCards, $this->dependents, $this->invoices, $this->timeline);
     }
 
     public function addNote(AddCustomerNote $addCustomerNote): void
@@ -445,4 +456,11 @@ new class extends Component
             </x-ui.card>
             @break
     @endswitch
+
+    @can('cards.manage')
+        <livewire:cards.replace-card-modal :customer-id="$customer->id" />
+        <livewire:cards.card-status-modal :customer-id="$customer->id" />
+        <livewire:cards.cancel-card-modal :customer-id="$customer->id" />
+        <livewire:cards.reenroll-modal :customer-id="$customer->id" />
+    @endcan
 </div>
