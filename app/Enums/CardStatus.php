@@ -2,8 +2,12 @@
 
 namespace App\Enums;
 
+use App\Enums\Concerns\ResolvesLookup;
+
 enum CardStatus: string
 {
+    use ResolvesLookup;
+
     case InStock = 'in_stock';
     case Active = 'active';
     case Suspended = 'suspended';

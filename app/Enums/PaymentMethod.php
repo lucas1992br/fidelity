@@ -2,8 +2,12 @@
 
 namespace App\Enums;
 
+use App\Enums\Concerns\ResolvesLookup;
+
 enum PaymentMethod: string
 {
+    use ResolvesLookup;
+
     case Pix = 'pix';
     case Cash = 'cash';
     case Card = 'card';

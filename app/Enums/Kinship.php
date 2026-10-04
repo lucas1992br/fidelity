@@ -2,8 +2,12 @@
 
 namespace App\Enums;
 
+use App\Enums\Concerns\ResolvesLookup;
+
 enum Kinship: string
 {
+    use ResolvesLookup;
+
     case Spouse = 'spouse';
     case Child = 'child';
     case Father = 'father';

@@ -2,8 +2,12 @@
 
 namespace App\Enums;
 
+use App\Enums\Concerns\ResolvesLookup;
+
 enum InvoiceStatus: string
 {
+    use ResolvesLookup;
+
     case Open = 'open';
     case Overdue = 'overdue';
     case Paid = 'paid';
