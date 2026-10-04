@@ -3,6 +3,8 @@
 use App\Enums\CardStatus;
 use App\Models\Card;
 use App\Actions\Customers\AddCustomerNote;
+use App\Actions\Customers\AddDependent;
+use App\Actions\Customers\DeactivateDependent;
 use App\Actions\Customers\ExportCustomerData;
 use App\Models\Customer;
 use App\Models\CustomerNote;
@@ -60,9 +62,10 @@ new class extends Component
     }
 
     /**
-     * Reload the holder after a card action of the sheet modals.
+     * Reload the holder after a card, plan or dependent action of the sheet modals.
      */
     #[On('customer-card-updated')]
+    #[On('customer-dependents-updated')]
     public function refreshCard(): void
     {
         $this->customer->refresh();
@@ -83,6 +86,20 @@ new class extends Component
         unset($this->notes, $this->timeline);
 
         $this->dispatch('notify', title: 'Observação adicionada');
+    }
+
+    /**
+     * Stop covering the dependent, keeping the sequence and the identification (US-7.1).
+     */
+    public function deactivateDependent(int $dependentId, DeactivateDependent $deactivateDependent): void
+    {
+        $this->authorize('update', $this->customer);
+
+        $dependent = $deactivateDependent->handle(auth()->user(), $this->customer->dependents()->findOrFail($dependentId));
+
+        unset($this->dependents, $this->timeline);
+
+        $this->dispatch('notify', title: 'Dependente inativado', description: "{$dependent->name} · a vaga do plano foi liberada.");
     }
 
     /**
@@ -193,6 +210,16 @@ new class extends Component
         $max = $this->customer->plan->max_dependents;
 
         return $max === 0 ? 'Não inclui' : $this->customer->activeDependents()->count()." de {$max}";
+    }
+
+    /**
+     * Why "Adicionar dependente" is disabled (plan limit reached or plan
+     * without dependents), or null when a new dependent fits the plan.
+     */
+    #[Computed]
+    public function addDependentBlockedMessage(): ?string
+    {
+        return AddDependent::limitMessage($this->customer->plan, $this->customer->activeDependents()->count() + 1);
     }
 
     /**
@@ -353,14 +380,23 @@ new class extends Component
             </div>
             @break
         @case('dependentes')
+            @php($canUpdateCustomer = auth()->user()->can('update', $customer))
             <x-ui.card class="flex flex-col gap-3" wire:key="tab-dependentes">
-                <span class="text-sm text-ink-500">
-                    {{ $customer->plan->max_dependents === 0 ? "O plano {$customer->plan->name} não inclui dependentes." : "{$this->dependentsUsage} dependentes do plano {$customer->plan->name}" }}
-                </span>
+                <div class="flex flex-wrap items-center gap-3">
+                    <span class="flex-1 text-sm text-ink-500">
+                        {{ $customer->plan->max_dependents === 0 ? "O plano {$customer->plan->name} não inclui dependentes." : "{$this->dependentsUsage} dependentes do plano {$customer->plan->name}" }}
+                    </span>
+                    @if ($canUpdateCustomer)
+                        <x-ui.button icon="user-plus" x-on:click="$dispatch('open-dependent')" :disabled="$this->addDependentBlockedMessage !== null">Adicionar dependente</x-ui.button>
+                    @endif
+                </div>
+                @if ($canUpdateCustomer && $this->addDependentBlockedMessage)
+                    <x-ui.callout tone="warning" data-slot="dependents-limit">{{ $this->addDependentBlockedMessage }}</x-ui.callout>
+                @endif
                 @if ($this->dependents->isEmpty())
                     <x-ui.empty-state icon="users" title="Nenhum dependente" description="Os dependentes usam o mesmo cartão do titular." />
                 @else
-                    <x-ui.table :columns="['Identificação', 'Nome', 'Parentesco', 'Nascimento', 'Status']" min-width="min-w-[620px]">
+                    <x-ui.table :columns="$canUpdateCustomer ? ['Identificação', 'Nome', 'Parentesco', 'Nascimento', 'Status', '>Ações'] : ['Identificação', 'Nome', 'Parentesco', 'Nascimento', 'Status']" min-width="min-w-[620px]">
                         @foreach ($this->dependents as $dependent)
                             <tr wire:key="dependent-{{ $dependent->id }}" @class(['text-ink-400' => ! $dependent->is_active])>
                                 <td class="font-mono text-[13px]">{{ $dependent->identification ?? '—' }}</td>
@@ -374,6 +410,20 @@ new class extends Component
                                         <x-ui.badge dot>Inativo</x-ui.badge>
                                     @endif
                                 </td>
+                                @if ($canUpdateCustomer)
+                                    <td class="text-right whitespace-nowrap">
+                                        <x-ui.button variant="ghost" size="sm" x-on:click="$dispatch('open-dependent', { dependent: {{ $dependent->id }} })">Editar</x-ui.button>
+                                        @if ($dependent->is_active)
+                                            <x-ui.button
+                                                variant="ghost"
+                                                size="sm"
+                                                class="text-danger-600"
+                                                wire:click="deactivateDependent({{ $dependent->id }})"
+                                                wire:confirm="Inativar {{ $dependent->name }}? A vaga no plano será liberada; a identificação e o histórico são mantidos."
+                                            >Inativar</x-ui.button>
+                                        @endif
+                                    </td>
+                                @endif
                             </tr>
                         @endforeach
                     </x-ui.table>
@@ -457,10 +507,15 @@ new class extends Component
             @break
     @endswitch
 
+    @can('update', $customer)
+        <livewire:customers.dependent-modal :customer-id="$customer->id" />
+    @endcan
+
     @can('cards.manage')
         <livewire:cards.replace-card-modal :customer-id="$customer->id" />
         <livewire:cards.card-status-modal :customer-id="$customer->id" />
         <livewire:cards.cancel-card-modal :customer-id="$customer->id" />
         <livewire:cards.reenroll-modal :customer-id="$customer->id" />
+        <livewire:customers.change-plan-modal :customer-id="$customer->id" />
     @endcan
 </div>
