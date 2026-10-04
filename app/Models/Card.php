@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * Plastic card: in stock while unassigned, then linked to a customer.
@@ -28,7 +30,7 @@ use Illuminate\Support\Carbon;
 class Card extends Model
 {
     /** @use HasFactory<CardFactory> */
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     /**
      * The attributes that are mass assignable.
@@ -44,6 +46,19 @@ class Card extends Model
         'assigned_at',
         'status_changed_at',
     ];
+
+    /**
+     * Audit changes to the fillable attributes in the "cards" log; the causer
+     * is the authenticated user (none when run by the scheduled routines).
+     */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName('cards')
+            ->logFillable()
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges();
+    }
 
     /**
      * Get the attributes that should be cast.

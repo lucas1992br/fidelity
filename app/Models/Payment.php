@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Exceptions\PhysicalDeleteNotAllowed;
 use Database\Factories\PaymentFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * Payment of an invoice. The receipt number comes from the database sequence,
@@ -30,7 +33,7 @@ use Illuminate\Support\Carbon;
 class Payment extends Model
 {
     /** @use HasFactory<PaymentFactory> */
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     /**
      * The attributes that are mass assignable.
@@ -48,6 +51,29 @@ class Payment extends Model
         'refunded_by_user_id',
         'refund_reason',
     ];
+
+    /**
+     * Payments are never deleted; a mistaken payment is refunded (US-9.4).
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (self $payment): never {
+            throw PhysicalDeleteNotAllowed::for($payment);
+        });
+    }
+
+    /**
+     * Audit changes to the fillable attributes in the "billing" log; the causer
+     * is the authenticated user (none when run by the scheduled routines).
+     */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName('billing')
+            ->logFillable()
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges();
+    }
 
     /**
      * Get the attributes that should be cast.
