@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Support\Format;
 use Database\Factories\CustomerFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -145,6 +146,17 @@ class Customer extends Model
     }
 
     /**
+     * The most recently assigned card, current or not; shows the holder's
+     * status when no card is in force.
+     *
+     * @return HasOne<Card, $this>
+     */
+    public function lastCard(): HasOne
+    {
+        return $this->hasOne(Card::class)->ofMany(['assigned_at' => 'max', 'id' => 'max']);
+    }
+
+    /**
      * Cards no longer in force (lost, discarded, cancelled), most recent first.
      *
      * @return HasMany<Card, $this>
@@ -186,6 +198,68 @@ class Customer extends Model
     public function notes(): HasMany
     {
         return $this->hasMany(CustomerNote::class)->latest()->latest('id');
+    }
+
+    /**
+     * Holders whose name contains the term, ignoring case and accents
+     * (served by the `customers_name_trgm` index).
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeWhereNameMatches(Builder $query, string $term): void
+    {
+        $query->whereRaw('f_unaccent(name) ILIKE f_unaccent(?)', ['%'.addcslashes(trim($term), '%_\\').'%']);
+    }
+
+    /**
+     * Holders with the given CPF, typed with or without the mask.
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeWhereCpf(Builder $query, string $cpf): void
+    {
+        $query->where('cpf', preg_replace('/\D/', '', $cpf));
+    }
+
+    /**
+     * Holders that own (or owned) a card with exactly this number.
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeWhereCardNumber(Builder $query, string $number): void
+    {
+        $query->whereHas('cards', fn (Builder $cards) => $cards->where('number', trim($number)));
+    }
+
+    /**
+     * Free-text listing search: name, CPF (11 digits, masked or not) or card number.
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeSearch(Builder $query, string $term): void
+    {
+        $term = trim($term);
+
+        if ($term === '') {
+            return;
+        }
+
+        $query->where(function (Builder $query) use ($term): void {
+            $query->whereNameMatches($term)->orWhere(fn (Builder $query) => $query->whereCardNumber($term));
+
+            if (self::looksLikeCpf($term)) {
+                $query->orWhere(fn (Builder $query) => $query->whereCpf($term));
+            }
+        });
+    }
+
+    /**
+     * Whether the term is a CPF: 11 digits, optionally with the dots, dash or spaces of the mask.
+     */
+    public static function looksLikeCpf(string $term): bool
+    {
+        return preg_match('/^[\d.\-\s]+$/', trim($term)) === 1
+            && strlen(preg_replace('/\D/', '', $term)) === 11;
     }
 
     /**

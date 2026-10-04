@@ -18,7 +18,7 @@ Route::middleware('auth')->group(function () {
 
     // --- Gestão de clientes ---
     Route::middleware('can:customers.view')->group(function () {
-        Route::livewire('/clientes', 'pages::placeholder')->name('customers.index');
+        Route::livewire('/clientes', 'pages::customers.index')->name('customers.index');
         Route::livewire('/clientes/{customer}', 'pages::placeholder')->name('customers.show');
     });
     Route::livewire('/clientes/{customer}/editar', 'pages::placeholder')->middleware('can:customers.update')->name('customers.edit');
