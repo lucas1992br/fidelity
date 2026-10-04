@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -106,6 +107,17 @@ class Card extends Model
     public function statusLogs(): HasMany
     {
         return $this->hasMany(CardStatusLog::class)->oldest()->oldest('id');
+    }
+
+    /**
+     * The most recent status change; for a card no longer in force it holds
+     * the final status, its reason and date.
+     *
+     * @return HasOne<CardStatusLog, $this>
+     */
+    public function latestStatusLog(): HasOne
+    {
+        return $this->hasOne(CardStatusLog::class)->ofMany(['created_at' => 'max', 'id' => 'max']);
     }
 
     /**

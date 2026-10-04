@@ -3,6 +3,7 @@
 namespace App\Support\Customers;
 
 use App\Rules\Cpf;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 
 /**
@@ -44,6 +45,18 @@ class CustomerRules
             'plan_id' => ['required', 'integer', Rule::exists('plans', 'id')->where('is_active', true)->whereNull('deleted_at')],
             'due_day' => ['required', 'integer', 'between:1,28'],
         ];
+    }
+
+    /**
+     * Rules of the edit screen: the holder data and the due day, ignoring the
+     * record itself in the CPF uniqueness. Card, plan and dependents are not
+     * edited there.
+     *
+     * @return array<string, array<int, mixed>>
+     */
+    public static function updateRules(int $customerId): array
+    {
+        return Arr::except(self::rules($customerId), ['plan_id']);
     }
 
     /**

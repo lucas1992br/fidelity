@@ -92,7 +92,9 @@ class CustomerForm extends Form
      */
     protected function rules(): array
     {
-        return CustomerRules::rules($this->customerId);
+        return $this->customerId === null
+            ? CustomerRules::rules()
+            : CustomerRules::updateRules($this->customerId);
     }
 
     /**

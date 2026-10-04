@@ -71,14 +71,14 @@ class Navigation
     }
 
     /**
-     * The nav item that owns the current route (the customer sheet belongs to "Clientes").
+     * The nav item that owns the current route (the customer sheet and edit screen belong to "Clientes").
      *
      * @return array{group: string, item: NavItem}|null
      */
     public static function current(): ?array
     {
         $routeName = Route::currentRouteName();
-        $routeName = $routeName === 'customers.show' ? 'customers.index' : $routeName;
+        $routeName = in_array($routeName, ['customers.show', 'customers.edit'], true) ? 'customers.index' : $routeName;
 
         foreach (self::groups() as $group) {
             foreach ($group['items'] as $item) {

@@ -19,9 +19,9 @@ Route::middleware('auth')->group(function () {
     // --- Gestão de clientes ---
     Route::middleware('can:customers.view')->group(function () {
         Route::livewire('/clientes', 'pages::customers.index')->name('customers.index');
-        Route::livewire('/clientes/{customer}', 'pages::placeholder')->name('customers.show');
+        Route::livewire('/clientes/{customer}', 'pages::customers.show')->name('customers.show');
     });
-    Route::livewire('/clientes/{customer}/editar', 'pages::placeholder')->middleware('can:customers.update')->name('customers.edit');
+    Route::livewire('/clientes/{customer}/editar', 'pages::customers.edit')->middleware('can:customers.update')->name('customers.edit');
 
     Route::livewire('/planos', 'pages::plans')->middleware('can:plans.manage')->name('plans.index');
     Route::livewire('/cartoes', 'pages::cards.stock')->middleware('can:cards.stock.view')->name('cards.stock');
