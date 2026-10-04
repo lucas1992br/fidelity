@@ -1,0 +1,86 @@
+<?php
+
+use App\Enums\CardStatus;
+use App\Models\Card;
+use App\Models\Invoice;
+use Spatie\Activitylog\Models\Activity;
+
+beforeEach(function () {
+    $this->travelTo('2026-10-15 00:20');
+    settings(['suspend_after_days' => 30]);
+});
+
+/**
+ * Active current card whose holder has an overdue invoice late by the given days.
+ */
+function activeCardOverdueBy(int $days): Card
+{
+    $card = Card::factory()->active()->create();
+    Invoice::factory()->overdue($days)->create(['customer_id' => $card->customer_id]);
+
+    return $card;
+}
+
+test('the limit is inclusive: 30 days late suspends and 29 does not', function () {
+    $late30 = activeCardOverdueBy(30);
+    $late29 = activeCardOverdueBy(29);
+
+    $this->artisan('cards:suspend-delinquent')
+        ->expectsOutputToContain('Cartões suspensos por inadimplência: 1')
+        ->assertSuccessful();
+
+    expect($late30->refresh()->hasStatus(CardStatus::Suspended))->toBeTrue()
+        ->and($late30->is_current)->toBeTrue()
+        ->and($late29->refresh()->hasStatus(CardStatus::Active))->toBeTrue()
+        ->and($late29->statusLogs()->count())->toBe(0);
+});
+
+test('the status log carries the longest delay and no user', function () {
+    $card = activeCardOverdueBy(32);
+    Invoice::factory()->overdue(5)->create(['customer_id' => $card->customer_id]);
+
+    $this->artisan('cards:suspend-delinquent')->assertSuccessful();
+
+    $log = $card->refresh()->statusLogs()->sole();
+
+    expect($log->from_card_status_id)->toBe(CardStatus::Active->id())
+        ->and($log->to_card_status_id)->toBe(CardStatus::Suspended->id())
+        ->and($log->reason)->toBe('Suspensão automática: 32 dias em atraso')
+        ->and($log->user_id)->toBeNull();
+});
+
+test('an open invoice past the limit that is not yet flagged overdue does not suspend', function () {
+    $card = Card::factory()->active()->create();
+    Invoice::factory()->create(['customer_id' => $card->customer_id, 'due_date' => '2026-09-01']);
+
+    $this->artisan('cards:suspend-delinquent')->assertSuccessful();
+
+    expect($card->refresh()->hasStatus(CardStatus::Active))->toBeTrue();
+});
+
+test('suspended or cancelled cards are not changed', function (CardStatus $status) {
+    $card = Card::factory()->status($status)->create();
+    Invoice::factory()->overdue(45)->create(['customer_id' => $card->customer_id]);
+
+    $this->artisan('cards:suspend-delinquent')->assertSuccessful();
+
+    expect($card->refresh()->hasStatus($status))->toBeTrue()
+        ->and($card->statusLogs()->count())->toBe(0);
+})->with([
+    'suspended' => [CardStatus::Suspended],
+    'cancelled' => [CardStatus::Cancelled],
+]);
+
+test('the activity log records how many cards were suspended', function () {
+    activeCardOverdueBy(30);
+    activeCardOverdueBy(40);
+    activeCardOverdueBy(10);
+
+    $this->artisan('cards:suspend-delinquent')->assertSuccessful();
+
+    $activity = Activity::query()->where('log_name', 'routines')->sole();
+
+    expect($activity->event)->toBe('cards:suspend-delinquent')
+        ->and($activity->properties['count'])->toBe(2)
+        ->and($activity->causer)->toBeNull();
+});
