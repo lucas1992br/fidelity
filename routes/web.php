@@ -14,7 +14,7 @@ Route::middleware('auth')->group(function () {
 
     // --- Atendimento (atendente, financeiro, admin) ---
     Route::livewire('/consulta', 'pages::quick-search')->middleware('can:cards.check')->name('quick-search');
-    Route::livewire('/vendas/nova', 'pages::placeholder')->middleware('can:sales.create')->name('sales.create');
+    Route::livewire('/vendas/nova', 'pages::sales.create')->middleware('can:sales.create')->name('sales.create');
 
     // --- Gestão de clientes ---
     Route::middleware('can:customers.view')->group(function () {

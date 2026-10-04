@@ -1,9 +1,11 @@
 {{--
     Global toast. Trigger from Livewire with:
     $this->dispatch('notify', title: '...', description: '...', type: 'success'|'error', receiptUrl: route('receipts.show', $payment))
+    Before a redirect, flash the same payload instead: session()->flash('notify', ['title' => '...']).
 --}}
 <div
-    x-data="{ toast: null, timer: null }"
+    x-data="{ toast: @js(session('notify') ? ['type' => 'success', ...session('notify')] : null), timer: null }"
+    x-init="toast && (timer = setTimeout(() => toast = null, 6000))"
     x-on:notify.window="toast = { type: 'success', ...$event.detail }; clearTimeout(timer); timer = setTimeout(() => toast = null, 6000)"
     x-show="toast"
     x-cloak
