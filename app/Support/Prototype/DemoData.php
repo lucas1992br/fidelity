@@ -46,7 +46,15 @@ class DemoData
      */
     public static function customers(): Collection
     {
-        return collect([
+        return collect(self::customerRows());
+    }
+
+    /**
+     * @return list<Customer>
+     */
+    private static function customerRows(): array
+    {
+        return [
             ['id' => 1, 'name' => 'Maria Aparecida Souza', 'cpf' => '12345678909', 'card' => '000123', 'old' => [['number' => '000087', 'note' => 'Extraviado em 03/06/2025']], 'plan' => 'Familiar', 'status' => CardStatus::Active, 'phone' => '(11) 98765-4321', 'email' => 'maria.souza@email.com', 'birth' => '22/07/1979', 'address' => 'Rua das Acácias, 245 · Vila Mariana · São Paulo/SP', 'due' => 10, 'joined' => '14/02/2024', 'assigned' => '03/06/2025', 'deps' => [
                 ['name' => 'Carlos Henrique Souza', 'kinship' => Kinship::Spouse, 'birth' => '03/05/1977'],
                 ['name' => 'Lívia Souza', 'kinship' => Kinship::Child, 'birth' => '18/09/2012'],
@@ -72,7 +80,7 @@ class DemoData
             ['id' => 8, 'name' => 'Sebastião Alves Costa', 'cpf' => '36925814766', 'card' => '000171', 'old' => [], 'plan' => 'Familiar', 'status' => CardStatus::Active, 'phone' => '(11) 98800-1199', 'email' => '', 'birth' => '30/04/1960', 'address' => 'Rua Piauí, 55 · Penha · São Paulo/SP', 'due' => 15, 'joined' => '21/01/2025', 'assigned' => '21/01/2025', 'deps' => [
                 ['name' => 'Rosa Alves Costa', 'kinship' => Kinship::Spouse, 'birth' => '11/11/1962'],
             ], 'notes' => []],
-        ]);
+        ];
     }
 
     /**
@@ -148,13 +156,12 @@ class DemoData
      */
     public static function dependentsOf(array $customer): array
     {
-        return collect($customer['deps'])
-            ->values()
+        return array_values(collect($customer['deps'])
             ->map(fn (array $dependent, int $index): array => [
                 'code' => $customer['card'].'-'.str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT),
                 ...$dependent,
             ])
-            ->all();
+            ->all());
     }
 
     /**
@@ -189,7 +196,7 @@ class DemoData
             return [];
         }
 
-        return self::customers()
+        return array_values(self::customers()
             ->map(function (array $customer) use ($query, $digits): ?array {
                 $dependent = collect(self::dependentsOf($customer))->firstWhere('code', $query);
                 $replaced = collect($customer['old'])->firstWhere('number', $query);
@@ -209,8 +216,7 @@ class DemoData
             })
             ->filter()
             ->take($limit)
-            ->values()
-            ->all();
+            ->all());
     }
 
     /**
@@ -220,15 +226,24 @@ class DemoData
      */
     public static function delinquents(): Collection
     {
-        return self::invoices()
-            ->where('status', InvoiceStatus::Overdue)
-            ->groupBy('cid')
-            ->map(fn (Collection $overdue, int $customerId): array => [
-                'customer' => self::customer($customerId),
+        $delinquents = [];
+
+        foreach (self::invoices()->where('status', InvoiceStatus::Overdue)->groupBy('cid') as $customerId => $overdue) {
+            $customer = self::customer($customerId);
+
+            if ($customer === null) {
+                continue;
+            }
+
+            $delinquents[] = [
+                'customer' => $customer,
                 'count' => $overdue->count(),
-                'total' => $overdue->sum('amount'),
-                'maxDays' => $overdue->max('days'),
-            ])
+                'total' => $overdue->sum(fn (array $invoice): float => $invoice['amount']),
+                'maxDays' => $overdue->max(fn (array $invoice): int => $invoice['days']) ?? 0,
+            ];
+        }
+
+        return collect($delinquents)
             ->sortByDesc('maxDays')
             ->values();
     }
@@ -326,11 +341,11 @@ class DemoData
      */
     public static function chart(): array
     {
-        return collect([
+        return array_values(collect([
             ['nov', 31.2, 19.8], ['dez', 32.0, 24.1], ['jan', 32.9, 20.4], ['fev', 33.4, 19.9],
             ['mar', 34.1, 21.6], ['abr', 34.8, 20.2], ['mai', 35.5, 22.9], ['jun', 36.0, 20.7],
             ['jul', 36.4, 21.3], ['ago', 37.2, 23.4], ['set', 37.9, 20.8], ['out', 38.4, 21.2],
-        ])->map(fn (array $row): array => array_combine(['month', 'income', 'expense'], $row))->all();
+        ])->map(fn (array $row): array => array_combine(['month', 'income', 'expense'], $row))->all());
     }
 
     /**

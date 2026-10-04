@@ -1223,7 +1223,7 @@ São **21 fases**. O **MVP** é o conjunto completo dos três módulos (decisão
 ## Open Questions
 
 - **Dados da clínica** (nome, CNPJ, endereço, telefone): a Phase 5 semeia `clinic_name = "Policlínica"` e o restante nulo; o Admin preenche em Configurações (Phase 8) antes de emitir recibos.
-- **Máscara de input:** confirmar se o Livewire 4 embute o `@alpinejs/mask`; se não, aprovar a dependência (Phase 1.3).
+- **Máscara de input (resolvido na Phase 1.3):** o Livewire 4 embute o `@alpinejs/mask` (todos os plugins Alpine exceto `@alpinejs/ui`); `x-mask` disponível sem dependência nova.
 - **Primeira mensalidade quando a adesão cai no próprio `due_day`:** o plano adota o próximo `due_day` *estritamente posterior* (adesão em 10/10 com `due_day` 10 vence em 10/11). Confirmar.
 - **Reingresso no mesmo mês de uma fatura mantida ou cancelada:** o plano gera a nova mensalidade para o mês seguinte ao já faturado (o unique `customer_id + reference_month` impede a duplicata). Confirmar.
 - **Formato da exportação LGPD (US-12.4):** o plano usa JSON estruturado; confirmar se a clínica prefere PDF/Excel.

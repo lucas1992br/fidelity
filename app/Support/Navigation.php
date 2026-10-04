@@ -53,14 +53,13 @@ class Navigation
      */
     public static function visibleGroups(): array
     {
-        return collect(self::groups())
+        return array_values(collect(self::groups())
             ->map(fn (array $group): array => [
                 ...$group,
                 'items' => array_values(array_filter($group['items'], fn (array $item): bool => self::allows($item['permission']))),
             ])
             ->filter(fn (array $group): bool => $group['items'] !== [])
-            ->values()
-            ->all();
+            ->all());
     }
 
     /**

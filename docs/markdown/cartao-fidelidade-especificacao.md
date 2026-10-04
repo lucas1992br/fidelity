@@ -527,7 +527,7 @@ class Cpf implements ValidationRule
 }
 ```
 
-No Form Object, normalizar antes de validar/salvar: `$this->cpf = preg_replace('/\D/', '', $this->cpf);`. Máscara no input com Alpine (`x-mask="999.999.999-99"` do plugin `@alpinejs/mask`, que já vem no Livewire 3).
+No Form Object, normalizar antes de validar/salvar: `$this->cpf = preg_replace('/\D/', '', $this->cpf);`. Máscara no input com Alpine (`x-mask="999.999.999-99"` do plugin `@alpinejs/mask`, que já vem embutido no Alpine do Livewire 4 — verificado na Phase 1.3, sem dependência extra).
 
 ---
 

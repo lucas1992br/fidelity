@@ -228,5 +228,5 @@ Permissão: `cards.manage`. Tudo acontece em **uma transação**.
 
 ## Open Questions
 
-- **Máscara de input:** confirmar se o plugin `@alpinejs/mask` continua embutido no Livewire 4 (a spec cita Livewire 3) ou se deve ser adicionado.
+- **Máscara de input (resolvido na Phase 1.3):** o Livewire 4 (v4.4.7) embute o plugin `@alpinejs/mask` — a doc do Livewire 4.x (Troubleshooting/Alpine) diz que o Alpine empacotado inclui todos os plugins exceto `@alpinejs/ui`, e `vendor/livewire/livewire/dist/livewire.js` registra `directive("mask")`. Nenhuma dependência adicionada; usar `x-mask` direto.
 - **Dados da clínica:** nome, CNPJ, endereço e telefone para recibos e configurações iniciais.
