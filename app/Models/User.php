@@ -11,6 +11,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Spatie\Permission\Traits\HasRoles;
 
 /**
  * @property int $id
@@ -18,6 +19,7 @@ use Illuminate\Support\Str;
  * @property string $email
  * @property Carbon|null $email_verified_at
  * @property string $password
+ * @property bool $is_active
  * @property string|null $remember_token
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -27,7 +29,7 @@ use Illuminate\Support\Str;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, HasRoles, Notifiable;
 
     /**
      * Get the attributes that should be cast.
