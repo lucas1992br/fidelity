@@ -1,40 +1,35 @@
 <?php
 
-use App\Support\Prototype\DemoData;
+use App\Models\Invoice;
 use Livewire\Livewire;
 
-/**
- * Id of a prototype invoice that still accepts a payment.
- */
-function payableInvoiceId(): int
-{
-    return DemoData::invoices()->first(fn (array $invoice): bool => $invoice['status']->isPayable())['id'];
-}
-
 test('atendente calling confirm on the payment modal gets 403', function () {
+    $invoice = Invoice::factory()->create();
     actingAsRole('atendente');
 
     Livewire::test('billing.payment-modal')
-        ->set('invoiceId', payableInvoiceId())
+        ->set('invoiceId', $invoice->id)
         ->call('confirm')
         ->assertForbidden();
 });
 
 test('atendente cannot open the payment modal', function () {
+    $invoice = Invoice::factory()->create();
     actingAsRole('atendente');
 
     Livewire::test('billing.payment-modal')
-        ->call('open', payableInvoiceId())
+        ->call('open', $invoice->id)
         ->assertForbidden();
 });
 
 test('financeiro opens the payment modal', function () {
+    $invoice = Invoice::factory()->create();
     actingAsRole('financeiro');
 
     Livewire::test('billing.payment-modal')
-        ->call('open', payableInvoiceId())
+        ->call('open', $invoice->id)
         ->assertOk()
-        ->assertSet('invoiceId', payableInvoiceId());
+        ->assertSet('invoiceId', $invoice->id);
 });
 
 test('atendente cannot open or confirm the replace card modal', function (string $method) {

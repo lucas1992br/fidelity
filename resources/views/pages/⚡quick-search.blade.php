@@ -7,6 +7,7 @@ use App\Support\Customers\CustomerSearchResult;
 use App\Support\Navigation;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
@@ -25,6 +26,13 @@ new class extends Component
     {
         $this->authorize('cards.check');
     }
+
+    /**
+     * Render the results again after a payment so the card status and the
+     * pending invoices are up to date.
+     */
+    #[On('payment-registered')]
+    public function refreshResults(): void {}
 
     /**
      * Next open invoice, overdue count and total, and the invoice to pay

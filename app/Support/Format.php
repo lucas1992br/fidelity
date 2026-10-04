@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use Carbon\CarbonInterface;
+use Illuminate\Support\Number;
 use Illuminate\Support\Str;
 
 class Format
@@ -25,6 +26,33 @@ class Format
         $thousands = strrev(implode('.', str_split(strrev($integer), 3)));
 
         return 'R$ '.($negative ? '-' : '').$thousands.','.$cents;
+    }
+
+    /**
+     * Spell out a monetary value in Portuguese for receipts, e.g. "oitenta e
+     * nove reais e noventa centavos". Like money(), it never uses a float.
+     */
+    public static function moneyInWords(float|int|string $value): string
+    {
+        $decimal = is_float($value) ? number_format($value, 2, '.', '') : ltrim(trim((string) $value), '+');
+
+        [$integer, $cents] = array_pad(explode('.', $decimal, 2), 2, '');
+
+        $reais = (int) (ltrim(preg_replace('/\D/', '', $integer), '0') ?: '0');
+        $centavos = (int) substr(str_pad(preg_replace('/\D/', '', $cents), 2, '0'), 0, 2);
+
+        $parts = [];
+
+        if ($reais > 0 || $centavos === 0) {
+            $connector = $reais >= 1_000_000 && $reais % 1_000_000 === 0 ? ' de ' : ' ';
+            $parts[] = Number::spell($reais, 'pt_BR').$connector.($reais === 1 ? 'real' : 'reais');
+        }
+
+        if ($centavos > 0) {
+            $parts[] = Number::spell($centavos, 'pt_BR').' '.($centavos === 1 ? 'centavo' : 'centavos');
+        }
+
+        return implode(' e ', $parts);
     }
 
     /**

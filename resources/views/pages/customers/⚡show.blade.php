@@ -2,6 +2,7 @@
 
 use App\Enums\CardStatus;
 use App\Models\Card;
+use App\Actions\Billing\RefundPayment;
 use App\Actions\Customers\AddCustomerNote;
 use App\Actions\Customers\AddDependent;
 use App\Actions\Customers\DeactivateDependent;
@@ -10,6 +11,7 @@ use App\Models\Customer;
 use App\Models\CustomerNote;
 use App\Models\Dependent;
 use App\Models\Invoice;
+use App\Models\Payment;
 use App\Services\CustomerTimeline;
 use App\Support\Customers\TimelineEvent;
 use App\Support\Format;
@@ -27,7 +29,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * Customer sheet (US-4.7): header with the card status and the actions the
  * user may take, and the Resumo, Dependentes, Mensalidades, Histórico and
  * Observações tabs (active tab kept in the URL). Requires `customers.view`;
- * the full CPF is shown only here (LGPD).
+ * the full CPF is shown only here (LGPD). The Mensalidades tab registers
+ * payments (`billing.pay`), opens receipts and refunds them (`billing.refund`).
  */
 new class extends Component
 {
@@ -50,6 +53,14 @@ new class extends Component
 
     public string $note = '';
 
+    /**
+     * Payment being refunded in the confirmation modal.
+     */
+    #[Locked]
+    public ?int $refundingPaymentId = null;
+
+    public string $refundReason = '';
+
     public function mount(Customer $customer): void
     {
         $this->authorize('view', $customer);
@@ -66,6 +77,7 @@ new class extends Component
      */
     #[On('customer-card-updated')]
     #[On('customer-dependents-updated')]
+    #[On('payment-registered')]
     public function refreshCard(): void
     {
         $this->customer->refresh();
@@ -100,6 +112,72 @@ new class extends Component
         unset($this->dependents, $this->timeline);
 
         $this->dispatch('notify', title: 'Dependente inativado', description: "{$dependent->name} · a vaga do plano foi liberada.");
+    }
+
+    /**
+     * Open the refund confirmation of a payment of the holder (US-9.4).
+     */
+    public function openRefund(int $paymentId): void
+    {
+        $this->authorize('billing.refund');
+
+        $payment = $this->findCustomerPayment($paymentId);
+        $this->authorize('refund', $payment);
+
+        $this->reset('refundReason');
+        $this->resetValidation('refundReason');
+        $this->refundingPaymentId = $payment->id;
+    }
+
+    public function closeRefund(): void
+    {
+        $this->reset('refundingPaymentId', 'refundReason');
+        $this->resetValidation('refundReason');
+    }
+
+    /**
+     * Refund the payment: the invoice returns to open or overdue and the income is cancelled.
+     */
+    public function refund(RefundPayment $refundPayment): void
+    {
+        $this->authorize('billing.refund');
+
+        if ($this->refundingPaymentId === null) {
+            return;
+        }
+
+        $payment = $this->findCustomerPayment($this->refundingPaymentId);
+
+        try {
+            $payment = $refundPayment->handle($payment, $this->refundReason, auth()->user());
+        } catch (ValidationException $exception) {
+            throw ValidationException::withMessages(['refundReason' => collect($exception->errors())->flatten()->all()]);
+        }
+
+        $this->closeRefund();
+        $this->refreshCard();
+
+        $this->dispatch('notify', title: "Pagamento estornado · recibo nº {$payment->receipt_number}", description: 'A mensalidade voltou a ficar pendente e a receita foi cancelada.');
+    }
+
+    /**
+     * Payment being refunded, shown in the confirmation modal.
+     */
+    #[Computed]
+    public function refundingPayment(): ?Payment
+    {
+        return $this->refundingPaymentId ? $this->findCustomerPayment($this->refundingPaymentId) : null;
+    }
+
+    /**
+     * A payment of this holder's invoices, so another holder's payment cannot be targeted.
+     */
+    protected function findCustomerPayment(int $paymentId): Payment
+    {
+        return Payment::query()
+            ->with('invoice')
+            ->whereRelation('invoice', 'customer_id', $this->customer->id)
+            ->findOrFail($paymentId);
     }
 
     /**
@@ -238,14 +316,15 @@ new class extends Component
     }
 
     /**
-     * Invoices from the most recent reference month to the oldest.
+     * Invoices from the most recent reference month to the oldest, with the
+     * active payment used by the "Recibo" and "Estornar" actions.
      *
      * @return Collection<int, Invoice>
      */
     #[Computed]
     public function invoices(): Collection
     {
-        return $this->customer->invoices()->orderByDesc('reference_month')->orderByDesc('id')->get();
+        return $this->customer->invoices()->with('activePayment')->orderByDesc('reference_month')->orderByDesc('id')->get();
     }
 
     /**
@@ -435,10 +514,14 @@ new class extends Component
                 @if ($this->invoices->isEmpty())
                     <x-ui.empty-state icon="receipt" title="Nenhuma mensalidade" description="As mensalidades geradas para o titular aparecem aqui." />
                 @else
-                    <x-ui.table :columns="['Referência', 'Vencimento', 'Valor', 'Status']" min-width="min-w-[620px]">
+                    @php($canPay = auth()->user()->can('billing.pay'))
+                    @php($canViewReceipt = auth()->user()->can('billing.view'))
+                    @php($canRefund = auth()->user()->can('billing.refund'))
+                    <x-ui.table :columns="['Referência', 'Vencimento', 'Valor', 'Status', '>Ações']" min-width="min-w-[620px]">
                         @foreach ($this->invoices as $invoice)
                             @php($invoiceStatus = \App\Enums\InvoiceStatus::fromId($invoice->invoice_status_id))
                             @php($daysOverdue = $invoice->days_overdue)
+                            @php($activePayment = $invoice->activePayment)
                             <tr wire:key="invoice-{{ $invoice->id }}">
                                 <td class="font-semibold text-ink-800">{{ $invoice->reference_month->format('m/Y') }}</td>
                                 <td>{{ \App\Support\Format::date($invoice->due_date) }}</td>
@@ -448,6 +531,19 @@ new class extends Component
                                         <x-ui.badge tone="red">Em atraso · {{ $daysOverdue }} {{ $daysOverdue === 1 ? 'dia' : 'dias' }}</x-ui.badge>
                                     @else
                                         <x-ui.badge :tone="$invoiceStatus->color()">{{ $invoiceStatus->label() }}</x-ui.badge>
+                                    @endif
+                                </td>
+                                <td class="text-right whitespace-nowrap">
+                                    @if ($canPay && $invoiceStatus->isPayable())
+                                        <x-ui.button variant="soft" size="sm" x-on:click="$dispatch('open-payment', { invoice: {{ $invoice->id }} })">Registrar pagamento</x-ui.button>
+                                    @endif
+                                    @if ($invoiceStatus === \App\Enums\InvoiceStatus::Paid && $activePayment)
+                                        @if ($canViewReceipt)
+                                            <x-ui.button variant="link" size="sm" :href="route('receipts.show', $activePayment)" target="_blank" rel="noopener">Recibo</x-ui.button>
+                                        @endif
+                                        @if ($canRefund)
+                                            <x-ui.button variant="ghost" size="sm" class="text-danger-600" wire:click="openRefund({{ $activePayment->id }})">Estornar</x-ui.button>
+                                        @endif
                                     @endif
                                 </td>
                             </tr>
@@ -506,6 +602,25 @@ new class extends Component
             </x-ui.card>
             @break
     @endswitch
+
+    @if ($refundingPaymentId && $this->refundingPayment)
+        @php($refundingPayment = $this->refundingPayment)
+        <x-ui.modal
+            title="Estornar pagamento"
+            :subtitle="'Recibo nº '.$refundingPayment->receipt_number.' · ref. '.$refundingPayment->invoice->reference_month->format('m/Y').' · '.\App\Support\Format::money($refundingPayment->amount)"
+            close="closeRefund"
+        >
+            <x-ui.callout tone="warning">A mensalidade volta a ficar pendente e a receita vinculada é cancelada. O pagamento continua registrado com o estorno.</x-ui.callout>
+
+            <x-ui.field label="Motivo (opcional)" for="refund-reason" error="refundReason">
+                <x-ui.textarea id="refund-reason" wire:model="refundReason" error="refundReason" rows="3" placeholder="Ex.: pagamento lançado em duplicidade" />
+            </x-ui.field>
+
+            <x-slot:actions>
+                <x-ui.button size="lg" wire:click="refund" wire:loading.attr="disabled" wire:target="refund">Estornar pagamento</x-ui.button>
+            </x-slot:actions>
+        </x-ui.modal>
+    @endif
 
     @can('update', $customer)
         <livewire:customers.dependent-modal :customer-id="$customer->id" />

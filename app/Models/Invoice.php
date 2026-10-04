@@ -23,7 +23,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property int $customer_id
  * @property int $plan_id
  * @property Carbon $reference_month
- * @property string $amount
+ * @property numeric-string $amount
  * @property Carbon $due_date
  * @property int $invoice_status_id
  * @property Carbon|null $paid_at

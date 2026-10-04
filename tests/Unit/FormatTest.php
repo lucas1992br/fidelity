@@ -47,3 +47,10 @@ test('zip formats a CEP', function () {
 test('initials skip short particles', function () {
     expect(Format::initials('Maria da Silva'))->toBe('MS');
 });
+
+test('moneyInWords spells out reais and centavos', function () {
+    expect(Format::moneyInWords('89.90'))->toBe('oitenta e nove reais e noventa centavos')
+        ->and(Format::moneyInWords('1.00'))->toBe('um real')
+        ->and(Format::moneyInWords('0.01'))->toBe('um centavo')
+        ->and(Format::moneyInWords('1289.05'))->toBe('mil duzentos e oitenta e nove reais e cinco centavos');
+});

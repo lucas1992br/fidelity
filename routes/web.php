@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\ReceiptController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -30,7 +31,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('can:billing.view')->group(function () {
         Route::livewire('/faturamento', 'pages::placeholder')->name('billing.index');
         Route::livewire('/faturamento/inadimplentes', 'pages::placeholder')->name('billing.delinquents');
-        Route::livewire('/recibos/{payment}', 'pages::placeholder')->name('receipts.show');
+        Route::get('/recibos/{payment}', ReceiptController::class)->name('receipts.show');
     });
 
     // --- Financeiro ---
