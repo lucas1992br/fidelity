@@ -64,11 +64,7 @@ new class extends Component
             ->withCount('activeDependents')
             ->search($this->search)
             ->when($this->plan !== '', fn (Builder $query) => $query->where('plan_id', (int) $this->plan))
-            ->when($statusFilter, fn (Builder $query) => $query->where(fn (Builder $query) => $query
-                ->whereHas('currentCard', fn (Builder $cards) => $cards->withStatus($statusFilter))
-                ->orWhere(fn (Builder $query) => $query
-                    ->doesntHave('currentCard')
-                    ->whereHas('lastCard', fn (Builder $cards) => $cards->withStatus($statusFilter)))))
+            ->when($statusFilter, fn (Builder $query, CardStatus $status) => $query->withCardStatus($status))
             ->orderBy('name')
             ->orderBy('id')
             ->paginate(20);

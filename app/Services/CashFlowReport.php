@@ -20,7 +20,7 @@ use Illuminate\Support\Collection;
  * Amounts are summed in the database and returned as decimal strings.
  *
  * @phpstan-type CashFlowRow array{key: string, label: string, income: string, expense: string, balance: string, cumulative: string, forecast_income: string|null, forecast_expense: string|null}
- * @phpstan-type CashFlow array{granularity: string, start: CarbonImmutable, end: CarbonImmutable, opening_balance: string, rows: list<CashFlowRow>, total_income: string, total_expense: string, closing_balance: string, with_forecast: bool}
+ * @phpstan-type CashFlow array{granularity: string, start: CarbonImmutable, end: CarbonImmutable, opening_balance: string, rows: list<CashFlowRow>, total_income: string, total_expense: string, total_balance: string, closing_balance: string, with_forecast: bool}
  */
 class CashFlowReport
 {
@@ -50,6 +50,17 @@ class CashFlowReport
         $start = CarbonImmutable::create($year, 1, 1);
 
         return $this->build(self::Monthly, $start, $start->endOfYear()->startOfDay(), $withForecast);
+    }
+
+    /**
+     * Any period, bucketed by day or by month (dashboard series and the
+     * cash flow report); monthly buckets cover whole calendar months.
+     *
+     * @return CashFlow
+     */
+    public function between(CarbonImmutable $start, CarbonImmutable $end, string $granularity = self::Monthly, bool $withForecast = false): array
+    {
+        return $this->build($granularity, $start->startOfDay(), $end->startOfDay(), $withForecast);
     }
 
     /**
@@ -94,6 +105,7 @@ class CashFlowReport
             'rows' => $rows,
             'total_income' => $totalIncome,
             'total_expense' => $totalExpense,
+            'total_balance' => bcsub($totalIncome, $totalExpense, 2),
             'closing_balance' => $cumulative,
             'with_forecast' => $withForecast,
         ];
@@ -206,7 +218,7 @@ class CashFlowReport
         $buckets = [];
 
         if ($granularity === self::Monthly) {
-            foreach (CarbonPeriod::create($start, '1 month', $end) as $month) {
+            foreach (CarbonPeriod::create($start->startOfMonth(), '1 month', $end) as $month) {
                 $buckets[$month->format('Y-m')] = $month->locale('pt_BR')->translatedFormat('M/Y');
             }
 

@@ -46,7 +46,7 @@ Route::middleware('auth')->group(function () {
         Route::livewire('/categorias', 'pages::finance.categories')->name('categories');
     });
 
-    Route::livewire('/relatorios', 'pages::placeholder')->middleware('can:reports.view')->name('reports.index');
+    Route::livewire('/relatorios', 'pages::reports')->middleware('can:reports.view')->name('reports.index');
     Route::livewire('/configuracoes', 'pages::settings')->middleware('can:settings.manage')->name('settings');
     Route::livewire('/usuarios', 'pages::users.index')->middleware('can:users.manage')->name('users.index');
 });

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CardStatus as CardStatusEnum;
 use App\Support\Format;
 use Database\Factories\CustomerFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -234,6 +235,21 @@ class Customer extends Model
     public function scopeWhereCardNumber(Builder $query, string $number): void
     {
         $query->whereHas('cards', fn (Builder $cards) => $cards->where('number', trim($number)));
+    }
+
+    /**
+     * Holders whose status is the given one: the current card's, or the last
+     * card's when none is in force (same rule as the customer list).
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeWithCardStatus(Builder $query, CardStatusEnum $status): void
+    {
+        $query->where(fn (Builder $query) => $query
+            ->whereHas('currentCard', fn (Builder $cards) => $cards->withStatus($status))
+            ->orWhere(fn (Builder $query) => $query
+                ->doesntHave('currentCard')
+                ->whereHas('lastCard', fn (Builder $cards) => $cards->withStatus($status))));
     }
 
     /**

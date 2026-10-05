@@ -17,8 +17,10 @@ use PhpOffice\PhpSpreadsheet\Shared\Date;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
 /**
- * Delinquents spreadsheet (US-8.5): the rows of DelinquentsQuery under a
- * header with the clinic data and the issue date.
+ * Delinquents spreadsheet (US-8.5 and the delinquency report of US-11.2):
+ * the rows of DelinquentsQuery under a header with the clinic data and the
+ * issue date. Settings are read when the file is written, so the export can
+ * be serialized onto the queue.
  *
  * @implements WithMapping<Customer>
  */
@@ -26,10 +28,7 @@ class DelinquentsExport implements FromQuery, WithColumnFormatting, WithHeadings
 {
     use Exportable;
 
-    public function __construct(
-        protected DelinquentsQuery $delinquents,
-        protected ClinicSettings $clinic,
-    ) {}
+    public function __construct(protected DelinquentsQuery $delinquents) {}
 
     /**
      * @return Builder<Customer>
@@ -46,12 +45,14 @@ class DelinquentsExport implements FromQuery, WithColumnFormatting, WithHeadings
      */
     public function headings(): array
     {
+        $clinic = app(ClinicSettings::class);
+
         return [
-            [$this->clinic->clinic_name],
+            [$clinic->clinic_name],
             [collect([
-                $this->clinic->clinic_cnpj ? "CNPJ {$this->clinic->clinic_cnpj}" : null,
-                $this->clinic->clinic_address,
-                $this->clinic->clinic_phone ? "Telefone {$this->clinic->clinic_phone}" : null,
+                $clinic->clinic_cnpj ? "CNPJ {$clinic->clinic_cnpj}" : null,
+                $clinic->clinic_address,
+                $clinic->clinic_phone ? "Telefone {$clinic->clinic_phone}" : null,
             ])->filter()->implode(' · ')],
             ['Inadimplentes · emitido em '.now()->format('d/m/Y H:i')],
             [],

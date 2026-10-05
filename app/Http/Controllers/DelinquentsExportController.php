@@ -29,11 +29,11 @@ class DelinquentsExportController extends Controller
     /**
      * Download the delinquents list as an Excel spreadsheet (US-8.5).
      */
-    public function excel(DelinquentsQuery $delinquents, ClinicSettings $settings): Response
+    public function excel(DelinquentsQuery $delinquents): Response
     {
         Gate::authorize('billing.view');
 
-        return Excel::download(new DelinquentsExport($delinquents, $settings), $this->fileName('xlsx'));
+        return Excel::download(new DelinquentsExport($delinquents), $this->fileName('xlsx'));
     }
 
     protected function fileName(string $extension): string

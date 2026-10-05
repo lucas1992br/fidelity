@@ -1,5 +1,6 @@
 {{--
-    Delinquents report rendered by dompdf (DelinquentsExportController). dompdf
+    Delinquents report rendered by dompdf (DelinquentsExportController and
+    the delinquency report, App\Reports\DelinquencyReport). dompdf
     does not read Tailwind, so the design system tokens are inlined as plain CSS.
 --}}
 <!DOCTYPE html>
