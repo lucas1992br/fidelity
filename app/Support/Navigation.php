@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Queries\DelinquentsQuery;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 
@@ -68,6 +69,21 @@ class Navigation
     public static function allows(string $permission): bool
     {
         return Gate::allows($permission);
+    }
+
+    /**
+     * Counter shown next to a nav item, or null when there is none (or it is
+     * zero). Only called for visible items, so the query never runs for users
+     * without the item's permission.
+     */
+    public static function badge(string $route): ?int
+    {
+        $count = match ($route) {
+            'billing.delinquents' => app(DelinquentsQuery::class)->holdersCount(),
+            default => 0,
+        };
+
+        return $count > 0 ? $count : null;
     }
 
     /**

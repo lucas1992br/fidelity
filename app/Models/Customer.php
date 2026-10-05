@@ -42,6 +42,11 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property Carbon|null $deleted_at
  * @property-read string $masked_cpf
  * @property-read string $formatted_cpf
+ * @property-read int $overdue_invoices_count Aggregate loaded by DelinquentsQuery.
+ * @property-read numeric-string $overdue_amount Aggregate loaded by DelinquentsQuery.
+ * @property-read Carbon $oldest_due_date Aggregate loaded by DelinquentsQuery.
+ * @property-read int $max_days_overdue Aggregate loaded by DelinquentsQuery.
+ * @property-read int|null $card_status_id Current (or last) card status loaded by DelinquentsQuery.
  */
 class Customer extends Model
 {

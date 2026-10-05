@@ -56,8 +56,8 @@
                                 >
                                     <x-ui.icon :name="$item['icon']" />
                                     <span class="flex-1 compact:hidden">{{ $item['label'] }}</span>
-                                    @if ($item['route'] === 'billing.delinquents')
-                                        <span class="rounded-full bg-danger-50 px-2 py-0.5 text-[11px] font-bold text-danger-700 compact:hidden">{{ \App\Support\Prototype\DemoData::delinquents()->count() }}</span>
+                                    @if ($badge = Navigation::badge($item['route']))
+                                        <span class="rounded-full bg-danger-50 px-2 py-0.5 text-[11px] font-bold text-danger-700 compact:hidden" data-nav-badge="{{ $item['route'] }}">{{ $badge }}</span>
                                     @endif
                                 </a>
                             @endforeach

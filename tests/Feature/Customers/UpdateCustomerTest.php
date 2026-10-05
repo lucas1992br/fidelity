@@ -80,7 +80,7 @@ test('a holder whose plan was deactivated can still be edited', function () {
 });
 
 test('atendente gets 403 on the edit screen and on save', function () {
-    $customer = Customer::factory()->withCard()->create();
+    $customer = Customer::factory()->withCard()->create(['due_day' => 10]);
 
     actingAsRole('atendente');
     $this->get(route('customers.edit', $customer))->assertForbidden();

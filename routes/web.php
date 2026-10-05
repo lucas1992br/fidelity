@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DelinquentsExportController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ReceiptController;
 use Illuminate\Support\Facades\Route;
@@ -29,8 +30,10 @@ Route::middleware('auth')->group(function () {
 
     // --- Faturamento ---
     Route::middleware('can:billing.view')->group(function () {
-        Route::livewire('/faturamento', 'pages::placeholder')->name('billing.index');
-        Route::livewire('/faturamento/inadimplentes', 'pages::placeholder')->name('billing.delinquents');
+        Route::livewire('/faturamento', 'pages::billing.index')->name('billing.index');
+        Route::livewire('/faturamento/inadimplentes', 'pages::billing.delinquents')->name('billing.delinquents');
+        Route::get('/faturamento/inadimplentes/pdf', [DelinquentsExportController::class, 'pdf'])->name('billing.delinquents.pdf');
+        Route::get('/faturamento/inadimplentes/excel', [DelinquentsExportController::class, 'excel'])->name('billing.delinquents.excel');
         Route::get('/recibos/{payment}', ReceiptController::class)->name('receipts.show');
     });
 
