@@ -58,7 +58,9 @@ class CreateFinancialEntry
             ],
             'description' => ['required', 'string', 'max:255'],
             'amount' => ['required', 'regex:/^\d{1,10}(\.\d{1,2})?$/', function (string $attribute, mixed $value, Closure $fail): void {
-                if (bccomp((string) $value, '0', 2) <= 0) {
+                $amount = (string) $value;
+
+                if (is_numeric($amount) && bccomp($amount, '0', 2) <= 0) {
                     $fail('O valor deve ser maior que zero.');
                 }
             }],

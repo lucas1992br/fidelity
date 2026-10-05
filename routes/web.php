@@ -5,10 +5,6 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ReceiptController;
 use Illuminate\Support\Facades\Route;
 
-/*
-| Screens that are not built yet point at `pages::placeholder`; each phase
-| swaps the destination when it builds the screen.
-*/
 Route::middleware('auth')->group(function () {
     // Home page: atendente goes to the quick search, other profiles to the dashboard.
     Route::get('/', HomeController::class)->name('home');

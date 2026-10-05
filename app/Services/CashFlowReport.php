@@ -9,7 +9,6 @@ use App\Models\Invoice;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonPeriod;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 
 /**
  * Cash flow (US-10.6) on a cash basis: paid financial entries counted on
@@ -19,8 +18,8 @@ use Illuminate\Support\Collection;
  * adds, by `due_date`, the pending entries and the open or overdue invoices.
  * Amounts are summed in the database and returned as decimal strings.
  *
- * @phpstan-type CashFlowRow array{key: string, label: string, income: string, expense: string, balance: string, cumulative: string, forecast_income: string|null, forecast_expense: string|null}
- * @phpstan-type CashFlow array{granularity: string, start: CarbonImmutable, end: CarbonImmutable, opening_balance: string, rows: list<CashFlowRow>, total_income: string, total_expense: string, total_balance: string, closing_balance: string, with_forecast: bool}
+ * @phpstan-type CashFlowRow array{key: string, label: string, income: numeric-string, expense: numeric-string, balance: numeric-string, cumulative: numeric-string, forecast_income: numeric-string|null, forecast_expense: numeric-string|null}
+ * @phpstan-type CashFlow array{granularity: string, start: CarbonImmutable, end: CarbonImmutable, opening_balance: numeric-string, rows: list<CashFlowRow>, total_income: numeric-string, total_expense: numeric-string, total_balance: numeric-string, closing_balance: numeric-string, with_forecast: bool}
  */
 class CashFlowReport
 {
@@ -69,7 +68,7 @@ class CashFlowReport
     protected function build(string $granularity, CarbonImmutable $start, CarbonImmutable $end, bool $withForecast): array
     {
         $realized = $this->realized($granularity, $start, $end);
-        $forecast = $withForecast ? $this->forecast($granularity, $start, $end) : collect();
+        $forecast = $withForecast ? $this->forecast($granularity, $start, $end) : [];
 
         $openingBalance = $this->openingBalance($start);
         $cumulative = $openingBalance;
@@ -113,29 +112,31 @@ class CashFlowReport
 
     /**
      * Paid incomes minus paid expenses before the period.
+     *
+     * @return numeric-string
      */
     public function openingBalance(CarbonImmutable $start): string
     {
-        return (string) $this->paidEntries()
+        return $this->decimal($this->paidEntries()
             ->whereDate('paid_at', '<', $start->toDateString())
             ->toBase()
             ->selectRaw(
                 'coalesce(sum(case when entry_type_id = ? then amount else -amount end), 0)::numeric(14, 2) as balance',
                 [EntryType::Income->id()],
             )
-            ->value('balance');
+            ->value('balance'));
     }
 
     /**
      * Paid inflows and outflows per bucket, keyed by bucket.
      *
-     * @return Collection<string, array{income: string, expense: string}>
+     * @return array<string, array{income: numeric-string, expense: numeric-string}>
      */
-    protected function realized(string $granularity, CarbonImmutable $start, CarbonImmutable $end): Collection
+    protected function realized(string $granularity, CarbonImmutable $start, CarbonImmutable $end): array
     {
         $bucket = $this->bucketExpression($granularity, 'paid_at');
 
-        return $this->paidEntries()
+        $rows = $this->paidEntries()
             ->whereBetween('paid_at', [$start->toDateString(), $end->toDateString()])
             ->toBase()
             ->selectRaw(
@@ -145,16 +146,23 @@ class CashFlowReport
                 [EntryType::Income->id(), EntryType::Expense->id()],
             )
             ->groupByRaw($bucket)
-            ->get()
-            ->mapWithKeys(fn (object $row): array => [$row->bucket => ['income' => (string) $row->income, 'expense' => (string) $row->expense]]);
+            ->get();
+
+        $realized = [];
+
+        foreach ($rows as $row) {
+            $realized[(string) $row->bucket] = ['income' => $this->decimal($row->income), 'expense' => $this->decimal($row->expense)];
+        }
+
+        return $realized;
     }
 
     /**
      * Pending entries and payable invoices per bucket of their due date.
      *
-     * @return Collection<string, array{income: string, expense: string}>
+     * @return array<string, array{income: numeric-string, expense: numeric-string}>
      */
-    protected function forecast(string $granularity, CarbonImmutable $start, CarbonImmutable $end): Collection
+    protected function forecast(string $granularity, CarbonImmutable $start, CarbonImmutable $end): array
     {
         $bucket = $this->bucketExpression($granularity, 'due_date');
         $period = [$start->toDateString(), $end->toDateString()];
@@ -182,11 +190,16 @@ class CashFlowReport
             ->get()
             ->keyBy('bucket');
 
-        return $entries->keys()->merge($invoices->keys())->unique()
-            ->mapWithKeys(fn (string $key): array => [$key => [
-                'income' => bcadd((string) ($entries[$key]->income ?? '0'), (string) ($invoices[$key]->income ?? '0'), 2),
-                'expense' => bcadd((string) ($entries[$key]->expense ?? '0'), '0', 2),
-            ]]);
+        $forecast = [];
+
+        foreach ($entries->keys()->merge($invoices->keys())->unique() as $key) {
+            $forecast[(string) $key] = [
+                'income' => $this->decimal(bcadd($this->decimal($entries[$key]->income ?? '0'), $this->decimal($invoices[$key]->income ?? '0'), 2)),
+                'expense' => $this->decimal(bcadd($this->decimal($entries[$key]->expense ?? '0'), '0', 2)),
+            ];
+        }
+
+        return $forecast;
     }
 
     /**
@@ -201,11 +214,29 @@ class CashFlowReport
             ->whereNotNull('paid_at');
     }
 
+    /**
+     * SQL expression of the bucket key; the column is always one of ours.
+     *
+     * @param  literal-string  $column
+     * @return literal-string
+     */
     protected function bucketExpression(string $granularity, string $column): string
     {
         return $granularity === self::Monthly
             ? "to_char({$column}, 'YYYY-MM')"
             : "to_char({$column}, 'YYYY-MM-DD')";
+    }
+
+    /**
+     * Decimal string of an aggregate returned by the database.
+     *
+     * @return numeric-string
+     */
+    protected function decimal(mixed $value): string
+    {
+        $decimal = (string) $value;
+
+        return is_numeric($decimal) ? $decimal : '0.00';
     }
 
     /**

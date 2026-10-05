@@ -3,7 +3,6 @@
 use App\Settings\ClinicSettings;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\HtmlString;
-use Livewire\Livewire;
 
 beforeEach(function () {
     $this->withoutVite();
@@ -26,11 +25,4 @@ test('a forbidden request renders the pt-BR 403 page with a link to the home pag
         ->assertSee('Você não tem permissão para acessar esta página')
         ->assertSee('href="'.route('home').'"', false)
         ->assertSee('Ir para a página inicial');
-});
-
-test('placeholder page shows the under construction block with a way back', function () {
-    Livewire::test('pages::placeholder')
-        ->assertSee('Esta tela ainda não foi desenhada')
-        ->assertSee('Voltar ao painel')
-        ->assertSeeHtml('href="'.route('home').'"');
 });

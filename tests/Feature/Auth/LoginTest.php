@@ -77,6 +77,8 @@ test('an inactive user with a wrong password gets the generic message', function
 });
 
 test('the sixth login attempt in a minute is throttled', function () {
+    $this->freezeTime();
+
     $user = User::factory()->create();
 
     foreach (range(1, 5) as $attempt) {
