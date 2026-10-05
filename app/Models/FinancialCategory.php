@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * @property int $id
@@ -101,5 +102,20 @@ class FinancialCategory extends Model
     public function scopeOfType(Builder $query, EntryTypeEnum $type): void
     {
         $query->where('entry_type_id', $type->id());
+    }
+
+    /**
+     * Categories offered in the entry form: the active ones of the type, plus
+     * the current category of the entry being edited (even if inactive).
+     *
+     * @return Collection<int, string> Names keyed by id.
+     */
+    public static function optionsFor(EntryTypeEnum $type, ?int $currentId = null): Collection
+    {
+        return self::query()
+            ->ofType($type)
+            ->where(fn (Builder $query) => $query->where('is_active', true)->when($currentId, fn (Builder $query) => $query->orWhere('id', $currentId)))
+            ->orderBy('name')
+            ->pluck('name', 'id');
     }
 }

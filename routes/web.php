@@ -39,11 +39,11 @@ Route::middleware('auth')->group(function () {
 
     // --- Financeiro ---
     Route::prefix('financeiro')->name('finance.')->middleware('can:finance.view')->group(function () {
-        Route::livewire('/lancamentos', 'pages::placeholder')->name('entries');
+        Route::livewire('/lancamentos', 'pages::finance.entries')->name('entries');
         Route::livewire('/contas-a-pagar', 'pages::placeholder')->name('payables');
         Route::livewire('/contas-a-receber', 'pages::placeholder')->name('receivables');
         Route::livewire('/fluxo-de-caixa', 'pages::placeholder')->name('cash-flow');
-        Route::livewire('/categorias', 'pages::placeholder')->name('categories');
+        Route::livewire('/categorias', 'pages::finance.categories')->name('categories');
     });
 
     Route::livewire('/relatorios', 'pages::placeholder')->middleware('can:reports.view')->name('reports.index');

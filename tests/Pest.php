@@ -44,6 +44,20 @@ function actingAsRole(string $role): User
 }
 
 /**
+ * Create an active user whose only permission is `finance.view` (no role)
+ * and authenticate as them.
+ */
+function actingAsFinanceViewer(): User
+{
+    $user = User::factory()->create(['is_active' => true]);
+    $user->givePermissionTo('finance.view');
+
+    test()->actingAs($user);
+
+    return $user;
+}
+
+/**
  * Override clinic settings for the current test and persist them.
  *
  * @param  array<string, mixed>  $overrides
