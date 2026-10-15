@@ -25,6 +25,7 @@ class Navigation
                 ['route' => 'quick-search', 'label' => 'Consulta rápida', 'icon' => 'scan-line', 'permission' => 'cards.check'],
                 ['route' => 'sales.create', 'label' => 'Nova venda', 'icon' => 'user-plus', 'permission' => 'sales.create'],
                 ['route' => 'customers.index', 'label' => 'Clientes', 'icon' => 'users', 'permission' => 'customers.view'],
+                ['route' => 'companies.index', 'label' => 'Empresas', 'icon' => 'building-2', 'permission' => 'customers.view'],
                 ['route' => 'plans.index', 'label' => 'Planos', 'icon' => 'badge-check', 'permission' => 'plans.manage'],
                 ['route' => 'cards.stock', 'label' => 'Estoque de cartões', 'icon' => 'credit-card', 'permission' => 'cards.stock.view'],
             ]],
@@ -87,14 +88,19 @@ class Navigation
     }
 
     /**
-     * The nav item that owns the current route (the customer sheet and edit screen belong to "Clientes").
+     * The nav item that owns the current route (the customer sheet and edit
+     * screen belong to "Clientes", the company sheet to "Empresas").
      *
      * @return array{group: string, item: NavItem}|null
      */
     public static function current(): ?array
     {
         $routeName = Route::currentRouteName();
-        $routeName = in_array($routeName, ['customers.show', 'customers.edit'], true) ? 'customers.index' : $routeName;
+        $routeName = match ($routeName) {
+            'customers.show', 'customers.edit' => 'customers.index',
+            'companies.show' => 'companies.index',
+            default => $routeName,
+        };
 
         foreach (self::groups() as $group) {
             foreach ($group['items'] as $item) {

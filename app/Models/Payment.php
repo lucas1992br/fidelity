@@ -21,6 +21,7 @@ use Spatie\Activitylog\Support\LogOptions;
  *
  * @property int $id
  * @property int $invoice_id
+ * @property int|null $company_id Company that paid its consolidated bill; null for a holder's own payment.
  * @property int $receipt_number
  * @property Carbon $paid_at
  * @property string $amount
@@ -57,6 +58,7 @@ class Payment extends Model
      */
     protected $fillable = [
         'invoice_id',
+        'company_id',
         'paid_at',
         'amount',
         'months',
@@ -115,6 +117,19 @@ class Payment extends Model
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    /**
+     * @return BelongsTo<Company, $this>
+     */
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class)->withTrashed();
+    }
+
+    public function isCompanyPayment(): bool
+    {
+        return $this->company_id !== null;
     }
 
     /**

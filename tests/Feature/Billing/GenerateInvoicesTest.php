@@ -60,14 +60,14 @@ test('running twice does not duplicate invoices', function () {
     expect(Invoice::count())->toBe(2);
 });
 
-test('it bills the current plan and price after a plan change and a price change', function () {
+test('it bills the current plan and the holder monthly amount, not the plan price', function () {
     $this->travelTo('2026-10-20');
     $oldPlan = Plan::factory()->create(['price' => '59.90']);
     $newPlan = Plan::factory()->create(['price' => '89.90']);
-    $customer = Customer::factory()->for($oldPlan)->create();
+    $customer = Customer::factory()->for($oldPlan)->create(['monthly_amount' => '59.90']);
     Card::factory()->active()->for($customer)->create();
 
-    $customer->update(['plan_id' => $newPlan->id]);
+    $customer->update(['plan_id' => $newPlan->id, 'monthly_amount' => '75.00']);
     $newPlan->update(['price' => '99.90']);
 
     $this->artisan('invoices:generate')->assertSuccessful();
@@ -75,7 +75,7 @@ test('it bills the current plan and price after a plan change and a price change
     $invoice = $customer->invoices()->sole();
 
     expect($invoice->plan_id)->toBe($newPlan->id)
-        ->and($invoice->amount)->toBe('99.90');
+        ->and($invoice->amount)->toBe('75.00');
 });
 
 test('--month generates that month on any day', function () {

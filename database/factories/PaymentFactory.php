@@ -57,6 +57,16 @@ class PaymentFactory extends Factory
     }
 
     /**
+     * Consolidated payment of the invoice's company bill (RegisterCompanyPayment).
+     */
+    public function forCompanyBill(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'company_id' => Invoice::findOrFail((int) $attributes['invoice_id'])->company_id,
+        ]);
+    }
+
+    /**
      * Payment already refunded (US-9.4).
      */
     public function refunded(): static

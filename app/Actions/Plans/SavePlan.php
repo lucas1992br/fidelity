@@ -7,8 +7,9 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Create or update a plan. The price only applies to invoices generated from
- * now on: existing invoices keep the amount frozen when they were generated.
+ * Create or update a plan. The price is only the monthly amount suggested at
+ * the sale: each holder keeps the amount typed for them, so a new price does
+ * not change any holder or invoice.
  */
 class SavePlan
 {

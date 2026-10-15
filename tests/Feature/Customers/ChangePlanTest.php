@@ -82,3 +82,31 @@ test('the change requires cards.manage', function () {
 
     expect($customer->refresh()->plan_id)->toBe($planId);
 });
+
+test('keeping the plan with a new monthly amount records the amounts from and to', function () {
+    $user = actingAsRole('financeiro');
+    $plan = Plan::factory()->create(['price' => '89.90']);
+    $customer = Customer::factory()->withCard()->for($plan)->create(['monthly_amount' => '89.90']);
+
+    app(ChangePlan::class)->handle($user, $customer, ['plan_id' => $plan->id, 'monthly_amount' => '75,00']);
+
+    $change = $customer->planChanges()->sole();
+
+    expect($customer->refresh()->monthly_amount)->toBe('75.00')
+        ->and($change->from_plan_id)->toBe($plan->id)
+        ->and($change->to_plan_id)->toBe($plan->id)
+        ->and($change->from_price)->toBe('89.90')
+        ->and($change->to_price)->toBe('75.00');
+});
+
+test('a new plan with a typed amount bills the typed amount, not the plan price', function () {
+    $user = actingAsRole('financeiro');
+    $familiar = Plan::factory()->withDependents(4)->create(['price' => '89.90']);
+    $customer = Customer::factory()->withCard()->create();
+
+    app(ChangePlan::class)->handle($user, $customer, ['plan_id' => $familiar->id, 'monthly_amount' => '120,00']);
+
+    $next = app(IssueInvoice::class)->handle($customer->refresh(), CarbonImmutable::parse('2026-11-01'));
+
+    expect($next->amount)->toBe('120.00');
+});

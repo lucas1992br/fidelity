@@ -17,10 +17,11 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Bring back a holder whose last card was cancelled (reingresso), in one
- * transaction: new plan and due day, a stock card linked as `active`, the
- * "Reingresso" `plan_changes` row and a new full-price invoice on the next
+ * transaction: new plan, monthly amount (the plan price when none is given) and due day, a stock card linked as
+ * `active`, the "Reingresso" `plan_changes` row and a new full invoice on the next
  * `due_day` (moved to the following month when that month already has an
  * invoice). Dependents keep their sequence; kept invoices stay chargeable.
+ * A company employee keeps the company's due day.
  */
 class ReenrollCustomer
 {
@@ -32,17 +33,18 @@ class ReenrollCustomer
     ) {}
 
     /**
-     * @param  array{card_number?: string|null, plan_id?: int|string|null, due_day?: int|string|null}  $input
+     * @param  array{card_number?: string|null, plan_id?: int|string|null, monthly_amount?: string|int|float|null, due_day?: int|string|null}  $input
      *
      * @throws ValidationException
      */
     public function handle(Customer $customer, array $input, User $user): Customer
     {
         $input['card_number'] = trim((string) ($input['card_number'] ?? ''));
+        $input = CustomerRules::normalize([...$input, 'monthly_amount' => $input['monthly_amount'] ?? null]);
 
         $validated = Validator::make($input, [
             'card_number' => ['required', 'string', 'max:255'],
-            ...Arr::only(CustomerRules::rules(), ['plan_id', 'due_day']),
+            ...Arr::only(CustomerRules::rules(), ['plan_id', 'monthly_amount', 'due_day']),
         ], CustomerRules::messages(), [
             ...CustomerRules::attributes(),
             'card_number' => 'número do novo cartão',
@@ -68,10 +70,13 @@ class ReenrollCustomer
             }
 
             $fromPlan = $customer->plan;
+            $fromAmount = $customer->monthly_amount;
+            $validated['monthly_amount'] ??= $plan->price;
 
             $customer->update([
                 'plan_id' => $plan->id,
-                'due_day' => (int) $validated['due_day'],
+                'monthly_amount' => $validated['monthly_amount'],
+                'due_day' => $customer->company?->due_day ?? (int) $validated['due_day'],
             ]);
 
             $this->assignCard->handle($customer, $validated['card_number'], $user, reason: self::Reason);
@@ -79,8 +84,8 @@ class ReenrollCustomer
             $customer->planChanges()->create([
                 'from_plan_id' => $fromPlan->id,
                 'to_plan_id' => $plan->id,
-                'from_price' => $fromPlan->price,
-                'to_price' => $plan->price,
+                'from_price' => $fromAmount,
+                'to_price' => $validated['monthly_amount'],
                 'reason' => self::Reason,
                 'user_id' => $user->id,
             ]);

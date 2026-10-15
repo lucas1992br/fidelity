@@ -3,12 +3,8 @@
 namespace App\Actions\Billing;
 
 use App\Actions\Cards\ReactivateCard;
-use App\Enums\EntryStatus as EntryStatusEnum;
-use App\Enums\EntryType as EntryTypeEnum;
 use App\Enums\InvoiceStatus as InvoiceStatusEnum;
 use App\Enums\PaymentMethod as PaymentMethodEnum;
-use App\Models\FinancialCategory;
-use App\Models\FinancialEntry;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\User;
@@ -27,13 +23,15 @@ use Illuminate\Validation\ValidationException;
  *
  * One payment may cover up to 12 consecutive months (e.g. a year of plan)
  * starting at the invoice's month: months not invoiced yet are issued at the
- * current plan price, every covered invoice becomes `paid` and is linked to
+ * holder's monthly amount, every covered invoice becomes `paid` and is linked to
  * the payment, and the amount must reach the sum of the months.
  *
  * Card and boleto payments may be split into up to 12 installments: the
  * invoices are still paid at once, and each installment becomes a pending
- * income due monthly from the payment date, settled in accounts receivable.
- * Cents left over by the split go to the first installment.
+ * income ({@see BookPaymentIncome}).
+ *
+ * Invoices of a company's consolidated bill are paid only through
+ * {@see RegisterCompanyPayment}.
  *
  * The covered invoice rows are locked, so two payments of the same month
  * result in a single payment. Amounts are compared as decimals, never floats.
@@ -45,6 +43,7 @@ class RegisterPayment
         protected ReactivateCard $reactivateCard,
         protected IssueInvoice $issueInvoice,
         protected PaymentPeriodAmount $paymentPeriodAmount,
+        protected BookPaymentIncome $bookPaymentIncome,
     ) {}
 
     /**
@@ -109,7 +108,15 @@ class RegisterPayment
                 'paid_at' => $payment->paid_at,
             ])->save());
 
-            $this->bookIncome($invoice->refresh(), $payment, $user);
+            $invoice->refresh();
+            $payment->setRelation('invoice', $invoice);
+            $this->bookPaymentIncome->handle(
+                $payment,
+                ($payment->months === 1 ? 'Mensalidade' : 'Mensalidades')." {$payment->referencePeriod()} - {$invoice->customer->name}",
+                $invoice->customer->name,
+                $invoice->due_date,
+                $user,
+            );
 
             if ($this->paymentWillReactivateCard->handle($invoice)) {
                 $this->reactivateCard->handle($invoice->customer->currentCard()->firstOrFail(), ReactivateCard::PaymentReason);
@@ -124,6 +131,10 @@ class RegisterPayment
      */
     protected function ensurePayable(Invoice $invoice, string $subject): void
     {
+        if ($invoice->isCompanyBilled()) {
+            throw ValidationException::withMessages(['invoice' => "{$subject} faz parte da fatura da empresa; registre o pagamento na página da empresa."]);
+        }
+
         if ($invoice->hasStatus(InvoiceStatusEnum::Paid)) {
             throw ValidationException::withMessages(['invoice' => "{$subject} já foi paga."]);
         }
@@ -154,64 +165,5 @@ class RegisterPayment
         }
 
         return $covered;
-    }
-
-    /**
-     * One paid income for a single payment; otherwise one pending income per
-     * installment, due monthly from the payment date.
-     */
-    protected function bookIncome(Invoice $invoice, Payment $payment, User $user): void
-    {
-        $payment->setRelation('invoice', $invoice);
-        $description = ($payment->months === 1 ? 'Mensalidade' : 'Mensalidades')." {$payment->referencePeriod()} - {$invoice->customer->name}";
-        $entry = [
-            'entry_type_id' => EntryTypeEnum::Income->id(),
-            'financial_category_id' => FinancialCategory::monthlyFees()->id,
-            'payment_method_id' => $payment->payment_method_id,
-            'payment_id' => $payment->id,
-            'supplier_or_payer' => $invoice->customer->name,
-            'user_id' => $user->id,
-        ];
-
-        if (! $payment->isInstallment()) {
-            FinancialEntry::create([
-                ...$entry,
-                'description' => $description,
-                'amount' => $payment->amount,
-                'due_date' => $invoice->due_date,
-                'entry_status_id' => EntryStatusEnum::Paid->id(),
-                'paid_at' => $payment->paid_at,
-                'installment_number' => 1,
-            ]);
-
-            return;
-        }
-
-        foreach ($this->splitAmount($payment->amount, $payment->installments) as $index => $amount) {
-            $number = $index + 1;
-
-            FinancialEntry::create([
-                ...$entry,
-                'description' => "{$description} (parcela {$number}/{$payment->installments})",
-                'amount' => $amount,
-                'due_date' => $payment->paid_at->copy()->addMonthsNoOverflow($index),
-                'entry_status_id' => EntryStatusEnum::Pending->id(),
-                'paid_at' => null,
-                'installment_number' => $number,
-            ]);
-        }
-    }
-
-    /**
-     * Split the amount into equal installments; the leftover cents go to the first one.
-     *
-     * @return list<string>
-     */
-    protected function splitAmount(string $amount, int $installments): array
-    {
-        $share = bcdiv($amount, (string) $installments, 2);
-        $first = bcsub($amount, bcmul($share, (string) ($installments - 1), 2), 2);
-
-        return [$first, ...array_fill(0, $installments - 1, $share)];
     }
 }

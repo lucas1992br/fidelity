@@ -116,6 +116,16 @@ class Format
     }
 
     /**
+     * Format a 14-digit CNPJ as "12.345.678/0001-95".
+     */
+    public static function cnpj(string $cnpj): string
+    {
+        $digits = self::digits($cnpj);
+
+        return substr($digits, 0, 2).'.'.substr($digits, 2, 3).'.'.substr($digits, 5, 3).'/'.substr($digits, 8, 4).'-'.substr($digits, 12, 2);
+    }
+
+    /**
      * Two-letter initials from a full name, skipping short particles ("da", "dos").
      */
     public static function initials(string $name): string

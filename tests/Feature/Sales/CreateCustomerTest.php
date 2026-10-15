@@ -5,6 +5,7 @@ use App\Enums\CardStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\Kinship;
 use App\Models\Card;
+use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Plan;
@@ -165,4 +166,56 @@ test('an invalid dependent rolls back the sale with the error under its index', 
 
     assertNothingPersisted();
     expect(Card::where('number', '000123')->sole()->hasStatus(CardStatus::InStock))->toBeTrue();
+});
+
+test('the typed monthly amount replaces the plan price on the sign-up and the first invoice', function () {
+    $this->travelTo('2026-10-05');
+    $user = actingAsRole('atendente');
+    $plan = Plan::factory()->create(['price' => '89.90']);
+    Card::factory()->inStock()->create(['number' => '000123']);
+
+    $customer = app(CreateCustomer::class)->handle(saleInput($plan, ['monthly_amount' => '1.050,00']), $user);
+
+    expect($customer->refresh()->monthly_amount)->toBe('1050.00')
+        ->and($customer->planChanges()->sole()->to_price)->toBe('1050.00')
+        ->and($customer->invoices()->sole()->amount)->toBe('1050.00');
+});
+
+test('a sale without a monthly amount bills the plan price', function () {
+    $user = actingAsRole('atendente');
+    $plan = Plan::factory()->create(['price' => '89.90']);
+    Card::factory()->inStock()->create(['number' => '000123']);
+
+    $customer = app(CreateCustomer::class)->handle(saleInput($plan), $user);
+
+    expect($customer->refresh()->monthly_amount)->toBe('89.90');
+});
+
+test('a company employee follows the company due day and joins its bill', function () {
+    $this->travelTo('2026-10-05');
+    $user = actingAsRole('atendente');
+    $plan = Plan::factory()->create();
+    $company = Company::factory()->create(['due_day' => 20]);
+    Card::factory()->inStock()->create(['number' => '000123']);
+
+    $customer = app(CreateCustomer::class)->handle(saleInput($plan, ['company_id' => $company->id, 'due_day' => 5]), $user);
+
+    $invoice = $customer->invoices()->sole();
+
+    expect($customer->refresh()->company_id)->toBe($company->id)
+        ->and($customer->due_day)->toBe(20)
+        ->and($invoice->company_id)->toBe($company->id)
+        ->and($invoice->due_date->toDateString())->toBe('2026-10-20');
+});
+
+test('an inactive company is rejected and persists nothing', function () {
+    $user = actingAsRole('atendente');
+    $plan = Plan::factory()->create();
+    $company = Company::factory()->inactive()->create();
+    Card::factory()->inStock()->create(['number' => '000123']);
+
+    expect(fn () => app(CreateCustomer::class)->handle(saleInput($plan, ['company_id' => $company->id]), $user))
+        ->toThrow(ValidationException::class, 'Selecione uma empresa ativa.');
+
+    assertNothingPersisted();
 });

@@ -3,6 +3,7 @@
 use App\Actions\Customers\ChangePlan;
 use App\Models\Customer;
 use App\Models\Plan;
+use App\Support\Format;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
@@ -11,10 +12,13 @@ use Livewire\Attributes\On;
 use Livewire\Component;
 
 /**
- * "Trocar plano" modal of the customer sheet (US-7.2): only active plans,
- * with price and dependents limit, and an optional reason; the dependents
- * block shows before confirming. Confirming runs `ChangePlan`; the new price
- * applies from the next invoice. Requires `cards.manage` to open and to confirm.
+ * "Trocar plano / valor" modal of the customer sheet (US-7.2): only active
+ * plans, with suggested price and dependents limit, the monthly amount
+ * (prefilled with the current one, then with the price of a newly chosen
+ * plan) and an optional reason; the dependents block shows before confirming.
+ * Keeping the current plan with a new amount is allowed. Confirming runs
+ * `ChangePlan`; the new amount applies from the next invoice. Requires
+ * `cards.manage` to open and to confirm.
  */
 new class extends Component
 {
@@ -25,6 +29,8 @@ new class extends Component
 
     public string $planId = '';
 
+    public string $monthlyAmount = '';
+
     public string $reason = '';
 
     #[On('open-change-plan')]
@@ -32,24 +38,39 @@ new class extends Component
     {
         $this->authorize('cards.manage');
 
-        $this->reset('planId', 'reason');
+        $this->reset('reason');
         $this->resetValidation();
+        $this->planId = (string) $this->customer->plan_id;
+        $this->monthlyAmount = self::money($this->customer->monthly_amount);
         $this->isOpen = true;
     }
 
     public function close(): void
     {
         $this->isOpen = false;
-        $this->reset('planId', 'reason');
+        $this->reset('planId', 'monthlyAmount', 'reason');
         $this->resetValidation();
     }
 
+    protected static function money(string $amount): string
+    {
+        return number_format((float) $amount, 2, ',', '.');
+    }
+
     /**
-     * A new plan replaces the dependents limit check, so its stale error goes away.
+     * A new plan replaces the dependents limit check, so its stale error goes
+     * away, and suggests its price as the monthly amount (the current amount
+     * when going back to the current plan).
      */
     public function updatedPlanId(): void
     {
         $this->resetErrorBag('planId');
+
+        if ((int) $this->planId === $this->customer->plan_id) {
+            $this->monthlyAmount = self::money($this->customer->monthly_amount);
+        } elseif ($plan = $this->plans->firstWhere('id', (int) $this->planId)) {
+            $this->monthlyAmount = self::money($plan->price);
+        }
     }
 
     #[Computed]
@@ -84,20 +105,26 @@ new class extends Component
     {
         $this->authorize('cards.manage');
 
-        $fromPlan = $this->customer->plan->name;
+        $from = $this->customer->plan->name.' ('.Format::money($this->customer->monthly_amount).')';
 
         try {
             $customer = $changePlan->handle(auth()->user(), $this->customer, [
                 'plan_id' => $this->planId,
+                'monthly_amount' => $this->monthlyAmount,
                 'reason' => $this->reason,
             ]);
         } catch (ValidationException $exception) {
             throw ValidationException::withMessages(collect($exception->errors())
-                ->mapWithKeys(fn (array $messages, string $key): array => [$key === 'plan_id' ? 'planId' : $key => $messages])
+                ->mapWithKeys(fn (array $messages, string $key): array => [match ($key) {
+                    'plan_id' => 'planId',
+                    'monthly_amount' => 'monthlyAmount',
+                    default => $key,
+                } => $messages])
                 ->all());
         }
 
-        $this->dispatch('notify', title: 'Plano alterado', description: "{$fromPlan} → {$customer->plan->name} · vale a partir da próxima mensalidade.");
+        $to = $customer->plan->name.' ('.Format::money($customer->monthly_amount).')';
+        $this->dispatch('notify', title: 'Plano alterado', description: "{$from} → {$to} · vale a partir da próxima mensalidade.");
         $this->dispatch('customer-card-updated');
         $this->close();
     }
@@ -106,9 +133,9 @@ new class extends Component
 
 <div>
     @if ($isOpen)
-        <x-ui.modal title="Trocar plano" :subtitle="$this->customer->name.' · plano atual '.$this->customer->plan->name.' ('.\App\Support\Format::money($this->customer->plan->price).')'" close="close">
+        <x-ui.modal title="Trocar plano / valor" :subtitle="$this->customer->name.' · plano atual '.$this->customer->plan->name.' ('.\App\Support\Format::money($this->customer->monthly_amount).')'" close="close">
             <div class="flex flex-col gap-1.5" role="radiogroup" aria-label="Novo plano">
-                <span class="text-[13px] font-semibold text-ink-800">Novo plano</span>
+                <span class="text-[13px] font-semibold text-ink-800">Plano</span>
                 @forelse ($this->plans as $plan)
                     @php($isCurrent = $plan->id === $this->customer->plan_id)
                     <button
@@ -117,9 +144,8 @@ new class extends Component
                         aria-checked="{{ $planId === (string) $plan->id ? 'true' : 'false' }}"
                         wire:key="change-plan-{{ $plan->id }}"
                         wire:click="$set('planId', '{{ $plan->id }}')"
-                        @disabled($isCurrent)
                         @class([
-                            'flex cursor-pointer items-center gap-3 rounded-md border px-3.5 py-3 text-left disabled:cursor-not-allowed disabled:opacity-50',
+                            'flex cursor-pointer items-center gap-3 rounded-md border px-3.5 py-3 text-left',
                             'border-guardian-500 bg-guardian-50' => $planId === (string) $plan->id,
                             'border-ink-200 bg-white hover:bg-ink-50' => $planId !== (string) $plan->id,
                         ])
@@ -128,7 +154,7 @@ new class extends Component
                             <span class="text-sm font-semibold text-ink-800">{{ $plan->name }}{{ $isCurrent ? ' · atual' : '' }}</span>
                             <span class="text-xs text-ink-500">{{ $plan->max_dependents === 0 ? 'Sem dependentes' : "Até {$plan->max_dependents} dependentes" }}</span>
                         </span>
-                        <span class="text-sm font-semibold text-ink-800">{{ \App\Support\Format::money($plan->price) }}/mês</span>
+                        <span class="text-sm text-ink-500">sugerido {{ \App\Support\Format::money($plan->price) }}</span>
                     </button>
                 @empty
                     <span class="text-xs text-ink-500">Nenhum plano ativo cadastrado.</span>
@@ -137,6 +163,10 @@ new class extends Component
                     <span class="text-xs font-semibold text-danger-700" role="alert">{{ $message }}</span>
                 @enderror
             </div>
+
+            <x-ui.field label="Valor mensal (R$)" for="change-plan-monthly-amount" error="monthlyAmount" hint="Valor cobrado do titular; o preço do plano é só uma sugestão." class="max-w-60">
+                <x-ui.input id="change-plan-monthly-amount" wire:model="monthlyAmount" error="monthlyAmount" mask="money" placeholder="0,00" />
+            </x-ui.field>
 
             @if ($this->dependentsBlockMessage)
                 <x-ui.callout tone="warning" wire:key="change-plan-dependents-limit">{{ $this->dependentsBlockMessage }}</x-ui.callout>
@@ -155,7 +185,7 @@ new class extends Component
                     wire:loading.attr="disabled"
                     wire:target="confirm"
                     :disabled="$planId === '' || $this->dependentsBlockMessage !== null"
-                >Trocar plano</x-ui.button>
+                >Salvar alteração</x-ui.button>
             </x-slot:actions>
         </x-ui.modal>
     @endif

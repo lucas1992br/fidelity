@@ -56,7 +56,11 @@
     </table>
 
     <div class="title">Recibo de pagamento</div>
-    <div class="muted">Recebemos de {{ $customer->name }} o valor abaixo, referente à mensalidade do cartão fidelidade.</div>
+    @if ($company)
+        <div class="muted">Recebemos de {{ $company->name }} o valor abaixo, referente à fatura mensal dos cartões fidelidade dos seus funcionários.</div>
+    @else
+        <div class="muted">Recebemos de {{ $customer->name }} o valor abaixo, referente à mensalidade do cartão fidelidade.</div>
+    @endif
 
     <div class="amount-box">
         <div class="amount">{{ \App\Support\Format::money($payment->amount) }}</div>
@@ -64,9 +68,15 @@
     </div>
 
     <table class="fields">
-        <tr><td class="label">Titular</td><td class="value">{{ $customer->name }}</td></tr>
-        <tr><td class="label">CPF</td><td class="value">{{ $customer->formatted_cpf }}</td></tr>
-        <tr><td class="label">Cartão</td><td class="value">{{ $card?->number ?? '—' }}</td></tr>
+        @if ($company)
+            <tr><td class="label">Empresa</td><td class="value">{{ $company->name }}</td></tr>
+            <tr><td class="label">CNPJ</td><td class="value">{{ $company->formatted_cnpj }}</td></tr>
+            <tr><td class="label">Funcionários</td><td class="value">{{ $payment->invoices->count() }}</td></tr>
+        @else
+            <tr><td class="label">Titular</td><td class="value">{{ $customer->name }}</td></tr>
+            <tr><td class="label">CPF</td><td class="value">{{ $customer->formatted_cpf }}</td></tr>
+            <tr><td class="label">Cartão</td><td class="value">{{ $card?->number ?? '—' }}</td></tr>
+        @endif
         <tr><td class="label">Referência</td><td class="value">{{ $payment->referencePeriod() }}</td></tr>
         <tr><td class="label">Vencimento</td><td class="value">{{ \App\Support\Format::date($invoice->due_date) }}</td></tr>
         <tr><td class="label">Forma de pagamento</td><td class="value">{{ $payment->methodLabel() }}</td></tr>

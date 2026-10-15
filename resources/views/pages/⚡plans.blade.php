@@ -9,7 +9,7 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 /**
- * Plan catalog (US-3.1): cards with price, dependents limit and active
+ * Plan catalog (US-3.1): cards with suggested price, dependents limit and active
  * customers, plus a create/edit modal. Every entry point requires `plans.manage`.
  */
 new class extends Component
@@ -131,7 +131,7 @@ new class extends Component
                     </div>
                     <div class="flex items-baseline gap-1">
                         <span class="font-display text-4xl font-bold tracking-tight text-ink-800">{{ \App\Support\Format::money($plan->price) }}</span>
-                        <span class="text-sm text-ink-500">/mês</span>
+                        <span class="text-sm text-ink-500">/mês sugerido</span>
                     </div>
                     <div class="flex flex-col gap-1.5 border-t border-ink-100 pt-3.5 text-sm">
                         <span>{{ $plan->max_dependents > 0 ? "Até {$plan->max_dependents} dependentes" : 'Não inclui dependentes' }}</span>
@@ -144,7 +144,7 @@ new class extends Component
     @endif
 
     @if ($isModalOpen)
-        <x-ui.modal :title="$planId ? 'Editar plano' : 'Novo plano'" subtitle="O novo preço vale a partir da próxima mensalidade gerada." close="close">
+        <x-ui.modal :title="$planId ? 'Editar plano' : 'Novo plano'" subtitle="O preço é a sugestão de valor mensal na venda; cada titular tem o próprio valor, alterado em “Trocar plano / valor”." close="close">
             <x-ui.field label="Nome" for="plan-name" error="name">
                 <x-ui.input id="plan-name" wire:model="name" error="name" autocomplete="off" />
             </x-ui.field>
@@ -154,7 +154,7 @@ new class extends Component
             </x-ui.field>
 
             <div class="grid grid-cols-2 gap-4">
-                <x-ui.field label="Preço mensal (R$)" for="plan-price" error="price">
+                <x-ui.field label="Preço sugerido (R$)" for="plan-price" error="price">
                     <x-ui.input id="plan-price" wire:model="price" error="price" mask="money" placeholder="0,00" />
                 </x-ui.field>
 

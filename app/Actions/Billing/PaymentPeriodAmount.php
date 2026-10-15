@@ -7,7 +7,7 @@ use App\Models\Invoice;
 /**
  * Total due for paying `$months` consecutive months starting at the invoice's
  * reference month: the frozen amount of each month already invoiced plus the
- * holder's current plan price for each month not invoiced yet. Shared by
+ * holder's current monthly amount for each month not invoiced yet. Shared by
  * `RegisterPayment` and the payment modal, which prefills the amount with it.
  */
 class PaymentPeriodAmount
@@ -29,6 +29,6 @@ class PaymentPeriodAmount
             return $total;
         }
 
-        return bcadd($total, bcmul($invoice->customer->plan()->firstOrFail()->price, (string) $missingMonths, 2), 2);
+        return bcadd($total, bcmul($invoice->customer->monthly_amount, (string) $missingMonths, 2), 2);
     }
 }

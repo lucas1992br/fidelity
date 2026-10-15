@@ -157,3 +157,16 @@ test('a user without sales.create gets 403 on mount', function () {
 
     $this->withoutVite()->get(route('sales.create'))->assertForbidden();
 });
+
+test('the sale saves the typed monthly amount', function () {
+    actingAsRole('atendente');
+    $plan = Plan::factory()->create(['price' => '89.90']);
+    Card::factory()->inStock()->create(['number' => '000123']);
+
+    salePage($plan)
+        ->set('customer.monthly_amount', '65,00')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(Customer::sole()->monthly_amount)->toBe('65.00');
+});

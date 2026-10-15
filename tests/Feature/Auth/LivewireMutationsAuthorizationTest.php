@@ -2,6 +2,7 @@
 
 use App\Enums\CardStatus;
 use App\Models\Card;
+use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Dependent;
 use App\Models\FinancialCategory;
@@ -23,6 +24,7 @@ use Livewire\Livewire;
 function livewireMutations(): array
 {
     $customerWithCard = fn (CardStatus $status = CardStatus::Active): Customer => Customer::factory()->withCard($status)->create();
+    $companyInvoice = fn (): Invoice => Invoice::factory()->open()->for(Customer::factory()->forCompany(Company::factory()->create())->withCard())->create();
 
     $mutations = [
         // Atendimento: venda
@@ -60,11 +62,33 @@ function livewireMutations(): array
         }],
         'troca de plano · change-plan-modal::open' => [true, fn () => [Livewire::test('customers.change-plan-modal', ['customerId' => $customerWithCard()->id]), 'open', []]],
         'troca de plano · change-plan-modal::confirm' => [true, fn () => [Livewire::test('customers.change-plan-modal', ['customerId' => $customerWithCard()->id])->call('open'), 'confirm', []]],
+        'empresas · company-modal::open' => [true, fn () => [Livewire::test('companies.company-modal'), 'open', []]],
+        'empresas · company-modal::save' => [true, fn () => [Livewire::test('companies.company-modal')->call('open'), 'save', []]],
         'notas · customers.show::addNote' => [true, fn () => [Livewire::test('pages::customers.show', ['customer' => $customerWithCard()])->set('note', 'Observação'), 'addNote', []]],
 
         // Faturamento: pagamento e estorno
         'pagamento · payment-modal::open' => [true, fn () => [Livewire::test('billing.payment-modal'), 'open', [Invoice::factory()->open()->create()->id]]],
         'pagamento · payment-modal::confirm' => [true, fn () => [Livewire::test('billing.payment-modal')->call('open', Invoice::factory()->open()->create()->id), 'confirm', []]],
+        'fatura empresa · companies.show::openPayment' => [true, function () use ($companyInvoice) {
+            $invoice = $companyInvoice();
+
+            return [Livewire::test('pages::companies.show', ['company' => $invoice->company]), 'openPayment', [$invoice->reference_month->toDateString()]];
+        }],
+        'fatura empresa · companies.show::confirmPayment' => [true, function () use ($companyInvoice) {
+            $invoice = $companyInvoice();
+
+            return [Livewire::test('pages::companies.show', ['company' => $invoice->company])->call('openPayment', $invoice->reference_month->toDateString()), 'confirmPayment', []];
+        }],
+        'estorno · companies.show::openRefund' => [false, function () use ($companyInvoice) {
+            $payment = Payment::factory()->for($companyInvoice())->forCompanyBill()->create();
+
+            return [Livewire::test('pages::companies.show', ['company' => $payment->company]), 'openRefund', [$payment->id]];
+        }],
+        'estorno · companies.show::refund' => [false, function () use ($companyInvoice) {
+            $payment = Payment::factory()->for($companyInvoice())->forCompanyBill()->create();
+
+            return [Livewire::test('pages::companies.show', ['company' => $payment->company])->call('openRefund', $payment->id), 'refund', []];
+        }],
         'estorno · customers.show::openRefund' => [false, function () {
             $payment = Payment::factory()->create();
 

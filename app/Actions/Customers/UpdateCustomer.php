@@ -11,7 +11,8 @@ use Illuminate\Validation\ValidationException;
  * Correct the holder data after the sale (US-4.6) with the same validations
  * as the sale, the CPF unique among the other holders. Card, plan and
  * dependents are not touched; a new `due_day` applies only to the invoices
- * generated from now on (existing invoices keep their due date).
+ * generated from now on (existing invoices keep their due date). A company
+ * employee keeps the company's due day.
  */
 class UpdateCustomer
 {
@@ -30,6 +31,10 @@ class UpdateCustomer
             CustomerRules::messages(),
             CustomerRules::attributes(),
         )->validate();
+
+        if ($customer->isEmployee()) {
+            $validated['due_day'] = $customer->company->due_day;
+        }
 
         $customer->update($validated);
 

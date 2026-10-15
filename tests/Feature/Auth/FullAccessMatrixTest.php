@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Payment;
 use Illuminate\Routing\Route as RoutingRoute;
@@ -7,7 +8,7 @@ use Illuminate\Support\Facades\Route;
 
 /**
  * Every application route (spec §8) with the profiles allowed in (§10.1).
- * `{customer}` and `{payment}` are replaced by persisted records.
+ * `{customer}`, `{company}` and `{payment}` are replaced by persisted records.
  *
  * @return array<string, array{string, list<string>}>
  */
@@ -23,6 +24,8 @@ function fullAccessMatrix(): array
         'customers.index' => ['/clientes', $staff],
         'customers.show' => ['/clientes/{customer}', $staff],
         'customers.edit' => ['/clientes/{customer}/editar', $staff],
+        'companies.index' => ['/empresas', $staff],
+        'companies.show' => ['/empresas/{company}', $staff],
         'plans.index' => ['/planos', ['admin']],
         'cards.stock' => ['/cartoes', $staff],
         'billing.index' => ['/faturamento', $staff],
@@ -86,6 +89,7 @@ test('each profile reaches only the routes of its permissions', function (string
 
     $uri = strtr($uri, [
         '{customer}' => str_contains($uri, '{customer}') ? (string) Customer::factory()->create()->id : '',
+        '{company}' => str_contains($uri, '{company}') ? (string) Company::factory()->create()->id : '',
         '{payment}' => str_contains($uri, '{payment}') ? (string) Payment::factory()->create()->id : '',
     ]);
 
@@ -119,5 +123,5 @@ test('the home page sends each profile to its start page', function (string $rol
 ]);
 
 test('visitors are redirected to the login page on every route', function (string $uri) {
-    $this->get(str_replace(['{customer}', '{payment}'], '1', $uri))->assertRedirect(route('login'));
+    $this->get(str_replace(['{customer}', '{company}', '{payment}'], '1', $uri))->assertRedirect(route('login'));
 })->with(fn (): array => ['home' => '/'] + array_map(fn (array $route): string => $route[0], fullAccessMatrix()));

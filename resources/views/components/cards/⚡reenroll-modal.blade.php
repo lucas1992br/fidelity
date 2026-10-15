@@ -14,8 +14,9 @@ use Livewire\Component;
 
 /**
  * Re-enrollment modal of the customer sheet (US-6.4): new stock card checked
- * in real time (as in the sale), active plan and due day (the holder's
- * current one by default), blocked while the active dependents do not fit
+ * in real time (as in the sale), active plan, monthly amount (the holder's
+ * current one by default, the plan price when the plan changes) and due day
+ * (the holder's current one by default), blocked while the active dependents do not fit
  * the plan. Confirming runs `ReenrollCustomer`. Requires `cards.manage` to
  * open and to confirm.
  */
@@ -30,6 +31,8 @@ new class extends Component
 
     public string $planId = '';
 
+    public string $monthlyAmount = '';
+
     public string $dueDay = '';
 
     #[On('open-reenroll')]
@@ -40,6 +43,7 @@ new class extends Component
         $this->resetValidation();
         $this->number = '';
         $this->planId = $this->plans->contains('id', $this->customer->plan_id) ? (string) $this->customer->plan_id : '';
+        $this->monthlyAmount = number_format((float) $this->customer->monthly_amount, 2, ',', '.');
         $this->dueDay = (string) $this->customer->due_day;
         $this->isOpen = true;
     }
@@ -47,16 +51,21 @@ new class extends Component
     public function close(): void
     {
         $this->isOpen = false;
-        $this->reset('number', 'planId', 'dueDay');
+        $this->reset('number', 'planId', 'monthlyAmount', 'dueDay');
         $this->resetValidation();
     }
 
     /**
-     * A new plan replaces the dependents limit check, so its stale error goes away.
+     * A new plan replaces the dependents limit check, so its stale error goes
+     * away, and suggests its price as the monthly amount.
      */
     public function updatedPlanId(): void
     {
         $this->resetErrorBag('planId');
+
+        if ($plan = $this->plans->firstWhere('id', (int) $this->planId)) {
+            $this->monthlyAmount = number_format((float) $plan->price, 2, ',', '.');
+        }
     }
 
     #[Computed]
@@ -108,6 +117,7 @@ new class extends Component
             $reenrollCustomer->handle($this->customer, [
                 'card_number' => $this->number,
                 'plan_id' => $this->planId,
+                'monthly_amount' => $this->monthlyAmount,
                 'due_day' => $this->dueDay,
             ], auth()->user());
         } catch (ValidationException $exception) {
@@ -115,6 +125,7 @@ new class extends Component
                 ->mapWithKeys(fn (array $messages, string $key): array => [match ($key) {
                     'card_number' => 'number',
                     'plan_id' => 'planId',
+                    'monthly_amount' => 'monthlyAmount',
                     'due_day' => 'dueDay',
                     default => $key,
                 } => $messages])
@@ -147,16 +158,20 @@ new class extends Component
                 <x-ui.callout :tone="$this->cardAvailability->tone()" wire:key="reenroll-card-availability">{{ $this->cardAvailability->message }}</x-ui.callout>
             @endif
 
+            <x-ui.field label="Plano" for="reenroll-plan" error="planId">
+                <x-ui.select id="reenroll-plan" wire:model.live="planId" error="planId" placeholder="Selecione">
+                    @foreach ($this->plans as $plan)
+                        <option value="{{ $plan->id }}" wire:key="reenroll-plan-{{ $plan->id }}">{{ $plan->name }} · {{ \App\Support\Format::money($plan->price) }}</option>
+                    @endforeach
+                </x-ui.select>
+            </x-ui.field>
+
             <div class="grid grid-cols-[minmax(0,1fr)_120px] gap-3">
-                <x-ui.field label="Plano" for="reenroll-plan" error="planId">
-                    <x-ui.select id="reenroll-plan" wire:model.live="planId" error="planId" placeholder="Selecione">
-                        @foreach ($this->plans as $plan)
-                            <option value="{{ $plan->id }}" wire:key="reenroll-plan-{{ $plan->id }}">{{ $plan->name }} · {{ \App\Support\Format::money($plan->price) }}</option>
-                        @endforeach
-                    </x-ui.select>
+                <x-ui.field label="Valor mensal (R$)" for="reenroll-monthly-amount" error="monthlyAmount">
+                    <x-ui.input id="reenroll-monthly-amount" wire:model="monthlyAmount" error="monthlyAmount" mask="money" placeholder="0,00" />
                 </x-ui.field>
                 <x-ui.field label="Vencimento" for="reenroll-due-day" error="dueDay">
-                    <x-ui.input id="reenroll-due-day" type="number" min="1" max="28" wire:model="dueDay" error="dueDay" />
+                    <x-ui.input id="reenroll-due-day" type="number" min="1" max="28" wire:model="dueDay" error="dueDay" :disabled="$this->customer->isEmployee()" />
                 </x-ui.field>
             </div>
 
@@ -164,7 +179,7 @@ new class extends Component
                 <x-ui.callout tone="warning" wire:key="reenroll-dependents-limit">{{ $this->dependentsLimitMessage }}</x-ui.callout>
             @endif
 
-            <span class="text-xs text-ink-500">O novo cartão entra ativo e a nova mensalidade vence no próximo dia de vencimento, com valor cheio.</span>
+            <span class="text-xs text-ink-500">O novo cartão entra ativo e a nova mensalidade vence no próximo dia de vencimento, com o valor mensal informado.</span>
 
             <x-slot:actions>
                 <x-ui.button

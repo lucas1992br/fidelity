@@ -5,6 +5,7 @@ namespace App\Livewire\Forms;
 use App\Models\Customer;
 use App\Settings\ClinicSettings;
 use App\Support\Customers\CustomerRules;
+use Illuminate\Support\Arr;
 use Livewire\Attributes\Locked;
 use Livewire\Form;
 
@@ -48,6 +49,16 @@ class CustomerForm extends Form
 
     public int|string|null $plan_id = null;
 
+    /**
+     * Monthly amount typed as pt-BR money ("1.234,56"); new sale only.
+     */
+    public string $monthly_amount = '';
+
+    /**
+     * Company of an employee sale; empty for an individual holder. New sale only.
+     */
+    public int|string|null $company_id = null;
+
     public int|string $due_day = '';
 
     /**
@@ -82,7 +93,7 @@ class CustomerForm extends Form
     {
         $normalized = CustomerRules::normalize($this->except('customerId'));
 
-        $this->fill(array_map(fn (mixed $value): mixed => $value ?? '', $normalized));
+        $this->fill(array_map(fn (mixed $value): mixed => $value ?? '', Arr::except($normalized, ['monthly_amount'])));
 
         return CustomerRules::normalize($this->validate());
     }
@@ -93,7 +104,7 @@ class CustomerForm extends Form
     protected function rules(): array
     {
         return $this->customerId === null
-            ? CustomerRules::rules()
+            ? [...CustomerRules::rules(), 'monthly_amount' => ['required', 'regex:/^\d{1,3}(\.?\d{3})*(,\d{1,2})?$/']]
             : CustomerRules::updateRules($this->customerId);
     }
 

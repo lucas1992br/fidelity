@@ -4,6 +4,7 @@ namespace App\Actions\Customers;
 
 use App\Actions\Billing\IssueInvoice;
 use App\Actions\Cards\AssignCard;
+use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Plan;
 use App\Models\User;
@@ -16,9 +17,13 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * New sale, all in one transaction: the holder, the sign-up `plan_changes`
- * row, the stock card, the dependents and the first invoice (full price, due
- * on the next `due_day`). Any failure rolls everything back, so there is never
- * a holder without a card.
+ * row, the stock card, the dependents and the first invoice (full monthly
+ * amount, due on the next `due_day`). Any failure rolls everything back, so
+ * there is never a holder without a card.
+ *
+ * The monthly amount is typed at the sale; the plan price is only the
+ * suggestion, used when no amount is given. A holder sold as a company employee follows the company's due
+ * day, and the invoices join the company's consolidated bill.
  */
 class CreateCustomer
 {
@@ -57,6 +62,18 @@ class CreateCustomer
 
             AddDependent::ensureFitsPlan($plan, count($validated['dependents']));
 
+            $validated['monthly_amount'] ??= $plan->price;
+
+            if (filled($validated['company_id'] ?? null)) {
+                $company = Company::query()->active()->whereKey($validated['company_id'])->lockForUpdate()->first();
+
+                if ($company === null) {
+                    throw ValidationException::withMessages(['company_id' => 'Selecione uma empresa ativa.']);
+                }
+
+                $validated['due_day'] = $company->due_day;
+            }
+
             $customer = Customer::create([
                 ...Arr::except($validated, ['card_number', 'dependents']),
                 'joined_at' => today(),
@@ -66,7 +83,7 @@ class CreateCustomer
                 'from_plan_id' => null,
                 'to_plan_id' => $plan->id,
                 'from_price' => null,
-                'to_price' => $plan->price,
+                'to_price' => $validated['monthly_amount'],
                 'reason' => 'Adesão',
                 'user_id' => $user->id,
             ]);

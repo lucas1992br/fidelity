@@ -25,6 +25,7 @@ function insertCustomer(array $attributes = []): int
 {
     return DB::table('customers')->insertGetId([
         'plan_id' => $attributes['plan_id'] ?? insertPlan(),
+        'monthly_amount' => '89.90',
         'name' => 'Maria da Conceição',
         'cpf' => fake()->unique()->numerify('###########'),
         'birth_date' => '1980-05-10',

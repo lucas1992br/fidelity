@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Enums\CardStatus as CardStatusEnum;
 use App\Models\Card;
+use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Plan;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -34,6 +35,8 @@ class CustomerFactory extends Factory
 
         return [
             'plan_id' => Plan::factory(),
+            'company_id' => null,
+            'monthly_amount' => fn (array $attributes): string => Plan::withTrashed()->findOrFail((int) $attributes['plan_id'])->price,
             'name' => $faker->name(),
             'cpf' => self::cpf(),
             'birth_date' => $faker->dateTimeBetween('-80 years', '-18 years')->format('Y-m-d'),
@@ -60,6 +63,17 @@ class CustomerFactory extends Factory
         return $this->afterCreating(function (Customer $customer) use ($status): void {
             Card::factory()->for($customer)->status($status)->create();
         });
+    }
+
+    /**
+     * Employee of the company, due on the company's due day.
+     */
+    public function forCompany(Company $company): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'company_id' => $company->id,
+            'due_day' => $company->due_day,
+        ]);
     }
 
     /**

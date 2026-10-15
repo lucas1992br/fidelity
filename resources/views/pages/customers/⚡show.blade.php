@@ -170,12 +170,14 @@ new class extends Component
     }
 
     /**
-     * A payment of this holder's invoices, so another holder's payment cannot be targeted.
+     * A payment of this holder's invoices, so another holder's payment cannot
+     * be targeted; a company payment is refunded on the company page.
      */
     protected function findCustomerPayment(int $paymentId): Payment
     {
         return Payment::query()
             ->with('invoice')
+            ->whereNull('company_id')
             ->whereRelation('invoice', 'customer_id', $this->customer->id)
             ->findOrFail($paymentId);
     }
@@ -233,12 +235,13 @@ new class extends Component
     }
 
     /**
-     * Whether "Registrar pagamento" applies: a payable invoice and a card that is not cancelled.
+     * Whether "Registrar pagamento" applies: a payable invoice of the holder's
+     * own (not of a company bill) and a card that is not cancelled.
      */
     #[Computed]
     public function canRegisterPayment(): bool
     {
-        return $this->payableInvoice !== null && $this->cardStatus !== CardStatus::Cancelled;
+        return $this->payableInvoice !== null && ! $this->payableInvoice->isCompanyBilled() && $this->cardStatus !== CardStatus::Cancelled;
     }
 
     /**
@@ -369,12 +372,15 @@ new class extends Component
                 @endif
             </div>
             <span class="text-sm text-ink-500">Titular desde {{ \App\Support\Format::date($customer->joined_at) }} · Cartão {{ $this->card?->number ?? '—' }}</span>
+            @if ($customer->company)
+                <span class="text-sm text-ink-500">Funcionário de <a href="{{ route('companies.show', $customer->company) }}" wire:navigate class="font-semibold text-guardian-700 hover:underline">{{ $customer->company->display_name }}</a></span>
+            @endif
         </div>
         <div class="flex flex-wrap gap-2">
             @can('cards.manage')
                 @if ($customer->currentCard)
                     <x-ui.button variant="secondary" size="lg" x-on:click="$dispatch('open-replace-card')">Segunda via</x-ui.button>
-                    <x-ui.button variant="secondary" size="lg" x-on:click="$dispatch('open-change-plan')">Trocar plano</x-ui.button>
+                    <x-ui.button variant="secondary" size="lg" x-on:click="$dispatch('open-change-plan')">Trocar plano / valor</x-ui.button>
                 @endif
             @endcan
             @can('customers.update')
@@ -405,13 +411,13 @@ new class extends Component
                         </div>
                         <div class="font-mono text-4xl font-semibold tracking-[0.08em] text-guardian-900">{{ $currentCard->number }}</div>
                         <div class="flex flex-wrap gap-6 text-sm">
-                            <div class="flex flex-col"><span class="text-xs text-guardian-700">Plano</span><span class="font-semibold text-guardian-900">{{ $customer->plan->name }} · {{ \App\Support\Format::money($customer->plan->price) }}</span></div>
+                            <div class="flex flex-col"><span class="text-xs text-guardian-700">Plano</span><span class="font-semibold text-guardian-900">{{ $customer->plan->name }} · {{ \App\Support\Format::money($customer->monthly_amount) }}</span></div>
                             <div class="flex flex-col"><span class="text-xs text-guardian-700">Vencimento</span><span class="font-semibold text-guardian-900">Todo dia {{ $customer->due_day }}</span></div>
                             <div class="flex flex-col"><span class="text-xs text-guardian-700">Dependentes</span><span class="font-semibold text-guardian-900">{{ $this->dependentsUsage }}</span></div>
                         </div>
                     @else
                         <span class="text-xs font-semibold tracking-[0.08em] text-guardian-700 uppercase">Cartão vigente</span>
-                        <p class="m-0 text-sm text-guardian-900">O titular não tem cartão vigente. Plano {{ $customer->plan->name }} · {{ \App\Support\Format::money($customer->plan->price) }} · vencimento todo dia {{ $customer->due_day }}.</p>
+                        <p class="m-0 text-sm text-guardian-900">O titular não tem cartão vigente. Plano {{ $customer->plan->name }} · {{ \App\Support\Format::money($customer->monthly_amount) }} · vencimento todo dia {{ $customer->due_day }}.</p>
                     @endif
 
                     @if ($this->previousCards->isNotEmpty())
@@ -534,10 +540,12 @@ new class extends Component
                                     @endif
                                 </td>
                                 <td class="text-right whitespace-nowrap">
-                                    @if ($canPay && $invoiceStatus->isPayable())
+                                    @if ($invoice->isCompanyBilled())
+                                        <span class="text-xs text-ink-500">Fatura da empresa</span>
+                                    @elseif ($canPay && $invoiceStatus->isPayable())
                                         <x-ui.button variant="soft" size="sm" x-on:click="$dispatch('open-payment', { invoice: {{ $invoice->id }} })">Registrar pagamento</x-ui.button>
                                     @endif
-                                    @if ($invoiceStatus === \App\Enums\InvoiceStatus::Paid && $activePayment)
+                                    @if ($invoiceStatus === \App\Enums\InvoiceStatus::Paid && $activePayment && ! $activePayment->isCompanyPayment())
                                         @if ($canViewReceipt)
                                             <x-ui.button variant="link" size="sm" :href="route('receipts.show', $activePayment)" target="_blank" rel="noopener">Recibo</x-ui.button>
                                         @endif

@@ -18,6 +18,8 @@ Route::middleware('auth')->group(function () {
     Route::middleware('can:customers.view')->group(function () {
         Route::livewire('/clientes', 'pages::customers.index')->name('customers.index');
         Route::livewire('/clientes/{customer}', 'pages::customers.show')->name('customers.show');
+        Route::livewire('/empresas', 'pages::companies.index')->name('companies.index');
+        Route::livewire('/empresas/{company}', 'pages::companies.show')->name('companies.show');
     });
     Route::livewire('/clientes/{customer}/editar', 'pages::customers.edit')->middleware('can:customers.update')->name('customers.edit');
 

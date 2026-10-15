@@ -5,6 +5,7 @@ use App\Actions\Customers\AddDependent;
 use App\Actions\Customers\CreateCustomer;
 use App\Livewire\Forms\CustomerForm;
 use App\Livewire\Forms\DependentForm;
+use App\Models\Company;
 use App\Models\Kinship;
 use App\Models\Plan;
 use App\Settings\ClinicSettings;
@@ -18,9 +19,11 @@ use Livewire\Component;
 
 /**
  * New sale (US-4.1–4.4): stock card checked in real time, holder data,
- * address filled by ViaCEP, plan and due day, and the dependents repeater.
- * "Concluir venda" runs `CreateCustomer` in one transaction; no invoice value
- * is shown. Every entry point requires `sales.create`.
+ * address filled by ViaCEP, plan, monthly amount (prefilled with the plan's
+ * suggested price, freely editable), optional company (an employee follows
+ * the company's due day; `?empresa={id}` preselects it) and due day, and the
+ * dependents repeater. "Concluir venda" runs `CreateCustomer` in one
+ * transaction. Every entry point requires `sales.create`.
  */
 new class extends Component
 {
@@ -42,12 +45,25 @@ new class extends Component
         $this->authorize('sales.create');
 
         $this->customer->fillDefaults($settings);
+
+        if ($company = $this->companies->firstWhere('id', request()->integer('empresa'))) {
+            $this->customer->company_id = $company->id;
+            $this->customer->due_day = $company->due_day;
+        }
     }
 
     public function updated(string $property): void
     {
         if ($property === 'customer.plan_id') {
             $this->revalidateDependentsLimit();
+
+            if ($this->selectedPlan) {
+                $this->customer->monthly_amount = number_format((float) $this->selectedPlan->price, 2, ',', '.');
+            }
+        }
+
+        if ($property === 'customer.company_id' && $this->selectedCompany) {
+            $this->customer->due_day = $this->selectedCompany->due_day;
         }
     }
 
@@ -73,6 +89,23 @@ new class extends Component
     public function plans(): Collection
     {
         return Plan::query()->active()->orderBy('price')->orderBy('name')->get();
+    }
+
+    /**
+     * Active companies an employee can be sold to.
+     *
+     * @return Collection<int, Company>
+     */
+    #[Computed]
+    public function companies(): Collection
+    {
+        return Company::query()->active()->orderBy('name')->get();
+    }
+
+    #[Computed]
+    public function selectedCompany(): ?Company
+    {
+        return $this->companies->firstWhere('id', (int) $this->customer->company_id);
     }
 
     #[Computed]
@@ -349,7 +382,7 @@ new class extends Component
     </x-ui.card>
 
     <x-ui.card class="flex flex-col gap-5">
-        <x-ui.card-title>Plano e vencimento</x-ui.card-title>
+        <x-ui.card-title>Plano, valor e vencimento</x-ui.card-title>
         <div class="flex flex-col gap-1.5">
             <span class="text-[13px] font-semibold text-ink-800">Plano</span>
             @if ($this->plans->isEmpty())
@@ -368,7 +401,7 @@ new class extends Component
                         >
                             <input type="radio" name="plan" value="{{ $plan->id }}" wire:model.live="customer.plan_id" class="sr-only">
                             <span class="text-[15px] font-semibold text-ink-800">{{ $plan->name }}</span>
-                            <span class="text-sm text-ink-700">{{ \App\Support\Format::money($plan->price) }}/mês</span>
+                            <span class="text-sm text-ink-700">sugerido {{ \App\Support\Format::money($plan->price) }}/mês</span>
                             <span class="text-xs text-ink-500">{{ $plan->max_dependents === 0 ? 'Não inclui dependentes' : "Até {$plan->max_dependents} dependentes" }}</span>
                         </label>
                     @endforeach
@@ -378,9 +411,24 @@ new class extends Component
                 <span class="text-xs font-semibold text-danger-700" role="alert">{{ $message }}</span>
             @enderror
         </div>
-        <x-ui.field label="Dia de vencimento" for="customer-due-day" error="customer.due_day" hint="De 1 a 28. A primeira mensalidade vence no próximo dia escolhido." class="max-w-60">
-            <x-ui.input id="customer-due-day" type="number" min="1" max="28" wire:model="customer.due_day" error="customer.due_day" />
-        </x-ui.field>
+        <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,220px),1fr))] gap-4">
+            <x-ui.field label="Valor mensal (R$)" for="customer-monthly-amount" error="customer.monthly_amount" hint="Valor cobrado do titular. O preço do plano é só uma sugestão.">
+                <x-ui.input id="customer-monthly-amount" wire:model="customer.monthly_amount" error="customer.monthly_amount" mask="money" placeholder="0,00" />
+            </x-ui.field>
+            @if ($this->companies->isNotEmpty())
+                <x-ui.field label="Empresa" for="customer-company" error="customer.company_id" hint="Opcional. Funcionário entra na fatura da empresa.">
+                    <x-ui.select id="customer-company" wire:model.live="customer.company_id" error="customer.company_id" placeholder="Cliente individual" :options="$this->companies->pluck('display_name', 'id')" />
+                </x-ui.field>
+            @endif
+            <x-ui.field
+                label="Dia de vencimento"
+                for="customer-due-day"
+                error="customer.due_day"
+                :hint="$this->selectedCompany ? 'Vencimento da empresa '.$this->selectedCompany->display_name.'.' : 'De 1 a 28. A primeira mensalidade vence no próximo dia escolhido.'"
+            >
+                <x-ui.input id="customer-due-day" type="number" min="1" max="28" wire:model="customer.due_day" error="customer.due_day" :disabled="$this->selectedCompany !== null" />
+            </x-ui.field>
+        </div>
     </x-ui.card>
 
     <x-ui.card class="flex flex-col gap-5">

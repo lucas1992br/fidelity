@@ -152,7 +152,7 @@ new class extends Component
                 <div class="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] border-t border-ink-100 [&>div]:flex [&>div]:flex-col [&>div]:gap-0.5 [&>div]:px-6 [&>div]:py-4 [&>div:not(:last-child)]:border-r [&>div:not(:last-child)]:border-ink-100">
                     <div>
                         <span class="text-xs text-ink-500">Plano</span>
-                        <span class="text-[15px] font-semibold text-ink-800">{{ $customer->plan->name }} · {{ \App\Support\Format::money($customer->plan->price) }}</span>
+                        <span class="text-[15px] font-semibold text-ink-800">{{ $customer->plan->name }} · {{ \App\Support\Format::money($customer->monthly_amount) }}</span>
                     </div>
                     <div>
                         <span class="text-xs text-ink-500">Próxima mensalidade</span>
@@ -196,7 +196,7 @@ new class extends Component
                 </div>
             @endif
 
-            @php($showPayment = $payable && $status !== \App\Enums\CardStatus::Cancelled)
+            @php($showPayment = $payable && ! $payable->isCompanyBilled() && $status !== \App\Enums\CardStatus::Cancelled)
             @if ($canOpenCustomer || $showPayment)
                 <div class="flex flex-wrap gap-2.5 border-t border-ink-100 bg-ink-25 px-6 py-4">
                     @if ($canOpenCustomer)

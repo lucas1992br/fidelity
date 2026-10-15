@@ -19,12 +19,13 @@ class ReceiptController extends Controller
     {
         Gate::authorize('viewReceipt', $payment);
 
-        $payment->load(['invoice.customer.currentCard', 'invoice.customer.lastCard']);
+        $payment->load(['invoice.customer.currentCard', 'invoice.customer.lastCard', 'company', 'invoices']);
 
         return Pdf::loadView('pdf.receipt', [
             'payment' => $payment,
             'invoice' => $payment->invoice,
             'customer' => $payment->invoice->customer,
+            'company' => $payment->company,
             'card' => $payment->invoice->customer->currentCard ?? $payment->invoice->customer->lastCard,
             'method' => PaymentMethod::fromId($payment->payment_method_id),
             'clinic' => $settings,

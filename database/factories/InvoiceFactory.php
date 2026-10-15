@@ -5,13 +5,12 @@ namespace Database\Factories;
 use App\Enums\InvoiceStatus as InvoiceStatusEnum;
 use App\Models\Customer;
 use App\Models\Invoice;
-use App\Models\Plan;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * Invoices default to open, for the current month, with the customer's plan
- * and price. `paid()` only flags the invoice; create the Payment separately.
+ * Invoices default to open, for the current month, with the customer's plan,
+ * company and monthly amount. `paid()` only flags the invoice; create the Payment separately.
  *
  * @extends Factory<Invoice>
  */
@@ -26,9 +25,10 @@ class InvoiceFactory extends Factory
     {
         return [
             'customer_id' => Customer::factory(),
+            'company_id' => fn (array $attributes): ?int => Customer::withTrashed()->findOrFail((int) $attributes['customer_id'])->company_id,
             'plan_id' => fn (array $attributes): int => Customer::withTrashed()->findOrFail((int) $attributes['customer_id'])->plan_id,
             'reference_month' => today()->startOfMonth()->toDateString(),
-            'amount' => fn (array $attributes): string => Plan::withTrashed()->findOrFail((int) $attributes['plan_id'])->price,
+            'amount' => fn (array $attributes): string => Customer::withTrashed()->findOrFail((int) $attributes['customer_id'])->monthly_amount,
             'due_date' => today()->startOfMonth()->addDays(9)->toDateString(),
             'invoice_status_id' => fn (): int => InvoiceStatusEnum::Open->id(),
             'paid_at' => null,

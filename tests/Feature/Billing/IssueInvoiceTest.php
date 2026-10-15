@@ -2,6 +2,7 @@
 
 use App\Actions\Billing\IssueInvoice;
 use App\Enums\InvoiceStatus;
+use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Plan;
@@ -51,4 +52,15 @@ test('amount and plan stay frozen after the plan price changes', function () {
 
     expect($invoice->refresh()->amount)->toBe('89.90')
         ->and($invoice->plan_id)->toBe($plan->id);
+});
+
+test('the invoice freezes the holder monthly amount and company, not the plan price', function () {
+    $plan = Plan::factory()->create(['price' => '89.90']);
+    $company = Company::factory()->create();
+    $customer = Customer::factory()->for($plan)->forCompany($company)->create(['monthly_amount' => '45.00']);
+
+    $invoice = app(IssueInvoice::class)->handle($customer, now()->setDate(2026, 11, 1));
+
+    expect($invoice->amount)->toBe('45.00')
+        ->and($invoice->company_id)->toBe($company->id);
 });

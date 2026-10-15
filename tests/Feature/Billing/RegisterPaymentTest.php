@@ -8,6 +8,7 @@ use App\Enums\EntryType;
 use App\Enums\InvoiceStatus;
 use App\Enums\PaymentMethod;
 use App\Models\Card;
+use App\Models\Company;
 use App\Models\Customer;
 use App\Models\FinancialCategory;
 use App\Models\FinancialEntry;
@@ -262,4 +263,13 @@ test('a period with a month already paid is rejected and issues nothing', functi
         ->toBe('A mensalidade 12/2026 já foi paga.')
         ->and(Payment::count())->toBe(0)
         ->and($customer->invoices()->count())->toBe(2);
+});
+
+test('an invoice of a company bill is paid only through the company', function () {
+    $customer = Customer::factory()->forCompany(Company::factory()->create())->withCard()->create();
+    $invoice = Invoice::factory()->for($customer)->forMonth('2026-10')->create();
+
+    expect(paymentError(fn () => registerPayment($invoice), 'invoice'))
+        ->toBe('Esta mensalidade faz parte da fatura da empresa; registre o pagamento na página da empresa.')
+        ->and(Payment::count())->toBe(0);
 });

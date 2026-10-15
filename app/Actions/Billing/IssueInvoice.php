@@ -9,9 +9,9 @@ use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 
 /**
- * Issue the customer's invoice of a reference month. The plan and its current
- * price are frozen on the invoice; a month that already has an invoice is
- * left untouched (one invoice per customer per month).
+ * Issue the customer's invoice of a reference month. The plan, the holder's
+ * monthly amount and company are frozen on the invoice; a month that already
+ * has an invoice is left untouched (one invoice per customer per month).
  */
 class IssueInvoice
 {
@@ -29,9 +29,10 @@ class IssueInvoice
         $plan = $customer->plan()->firstOrFail();
 
         return $customer->invoices()->create([
+            'company_id' => $customer->company_id,
             'plan_id' => $plan->id,
             'reference_month' => $referenceMonth->toDateString(),
-            'amount' => $plan->price,
+            'amount' => $customer->monthly_amount,
             'due_date' => $referenceMonth->setDay($customer->due_day)->toDateString(),
             'invoice_status_id' => InvoiceStatusEnum::Open->id(),
         ]);

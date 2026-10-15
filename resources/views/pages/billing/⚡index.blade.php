@@ -189,7 +189,9 @@ new class extends Component
                             @endif
                         </td>
                         <td class="text-right whitespace-nowrap">
-                            @if ($canPay && $invoiceStatus->isPayable())
+                            @if ($invoice->isCompanyBilled() && $invoiceStatus->isPayable())
+                                <x-ui.button variant="link" size="sm" :href="route('companies.show', $invoice->company_id)" wire:navigate>Fatura da empresa</x-ui.button>
+                            @elseif ($canPay && $invoiceStatus->isPayable())
                                 <x-ui.button variant="soft" size="sm" x-on:click="$dispatch('open-payment', { invoice: {{ $invoice->id }} })">Registrar pagamento</x-ui.button>
                             @elseif ($invoiceStatus === InvoiceStatus::Paid && $invoice->activePayment)
                                 <x-ui.button variant="link" size="sm" :href="route('receipts.show', $invoice->activePayment)" target="_blank" rel="noopener">Recibo</x-ui.button>

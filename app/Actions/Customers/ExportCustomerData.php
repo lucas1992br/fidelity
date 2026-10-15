@@ -77,6 +77,8 @@ class ExportCustomerData
                 'uf' => $customer->state,
             ],
             'plano' => ['nome' => $plan->name, 'preco' => $plan->price],
+            'valor_mensal' => $customer->monthly_amount,
+            'empresa' => $customer->company?->only(['name', 'cnpj']),
             'dia_vencimento' => $customer->due_day,
             'adesao' => $customer->joined_at->toDateString(),
             'cadastrado_em' => $customer->created_at?->toIso8601String(),

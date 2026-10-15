@@ -23,6 +23,8 @@ use Spatie\Activitylog\Support\LogOptions;
  *
  * @property int $id
  * @property int $plan_id
+ * @property int|null $company_id
+ * @property numeric-string $monthly_amount Amount billed every month, typed at the sale (plan price is only a suggestion).
  * @property string $name
  * @property string $cpf
  * @property Carbon $birth_date
@@ -61,6 +63,8 @@ class Customer extends Model
      */
     protected $fillable = [
         'plan_id',
+        'company_id',
+        'monthly_amount',
         'name',
         'cpf',
         'birth_date',
@@ -102,6 +106,7 @@ class Customer extends Model
             'birth_date' => 'date',
             'joined_at' => 'date',
             'due_day' => 'integer',
+            'monthly_amount' => 'decimal:2',
         ];
     }
 
@@ -111,6 +116,24 @@ class Customer extends Model
     public function plan(): BelongsTo
     {
         return $this->belongsTo(Plan::class)->withTrashed();
+    }
+
+    /**
+     * Company the holder works for; null for individual holders.
+     *
+     * @return BelongsTo<Company, $this>
+     */
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class)->withTrashed();
+    }
+
+    /**
+     * Whether the holder is billed through a company's consolidated bill.
+     */
+    public function isEmployee(): bool
+    {
+        return $this->company_id !== null;
     }
 
     /**

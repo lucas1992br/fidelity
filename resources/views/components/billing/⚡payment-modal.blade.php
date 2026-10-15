@@ -49,6 +49,12 @@ new class extends Component
         $found = Invoice::query()->findOrFail($invoice);
         $this->authorize('pay', $found);
 
+        if ($found->isCompanyBilled()) {
+            $this->dispatch('notify', type: 'error', title: 'Esta mensalidade faz parte da fatura da empresa; registre o pagamento na página da empresa.');
+
+            return;
+        }
+
         if (! InvoiceStatus::fromId($found->invoice_status_id)->isPayable()) {
             $this->dispatch('notify', type: 'error', title: 'Esta mensalidade não pode receber baixa.');
 
