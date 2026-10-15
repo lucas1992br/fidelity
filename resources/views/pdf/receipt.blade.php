@@ -13,6 +13,7 @@
         body { margin: 0; font-family: 'DejaVu Sans', sans-serif; font-size: 12px; color: #232834; }
         .header { border-bottom: 3px solid #2e78f2; padding-bottom: 14px; }
         .header td { vertical-align: top; }
+        .logo { width: 200px; height: auto; margin-bottom: 8px; }
         .clinic-name { font-size: 18px; font-weight: bold; color: #112d63; }
         .muted { color: #6a7385; }
         .receipt-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: #1a4da8; }
@@ -35,6 +36,7 @@
     <table class="header">
         <tr>
             <td>
+                <img src="{{ public_path('images/logo.png') }}" alt="{{ $clinic->clinic_name }}" class="logo">
                 <div class="clinic-name">{{ $clinic->clinic_name }}</div>
                 @if ($clinic->clinic_cnpj)
                     <div class="muted">CNPJ {{ $clinic->clinic_cnpj }}</div>
@@ -65,9 +67,9 @@
         <tr><td class="label">Titular</td><td class="value">{{ $customer->name }}</td></tr>
         <tr><td class="label">CPF</td><td class="value">{{ $customer->formatted_cpf }}</td></tr>
         <tr><td class="label">Cartão</td><td class="value">{{ $card?->number ?? '—' }}</td></tr>
-        <tr><td class="label">Referência</td><td class="value">{{ $invoice->reference_month->format('m/Y') }}</td></tr>
+        <tr><td class="label">Referência</td><td class="value">{{ $payment->referencePeriod() }}</td></tr>
         <tr><td class="label">Vencimento</td><td class="value">{{ \App\Support\Format::date($invoice->due_date) }}</td></tr>
-        <tr><td class="label">Forma de pagamento</td><td class="value">{{ $method->label() }}</td></tr>
+        <tr><td class="label">Forma de pagamento</td><td class="value">{{ $payment->methodLabel() }}</td></tr>
         <tr><td class="label">Data do pagamento</td><td class="value">{{ \App\Support\Format::date($payment->paid_at) }}</td></tr>
     </table>
 

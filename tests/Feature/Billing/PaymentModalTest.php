@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PaymentMethod as PaymentMethodModel;
+use App\Models\Plan;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -115,3 +116,60 @@ test('atendente gets 403 on open and on confirm', function (string $method) {
 
     expect(Payment::count())->toBe(0);
 })->with(['open', 'confirm']);
+
+test('card and boleto show the installments and confirming splits the payment', function () {
+    actingAsRole('financeiro');
+    $invoice = Invoice::factory()->create(['amount' => '89.90']);
+
+    Livewire::test('billing.payment-modal')
+        ->call('open', $invoice->id)
+        ->assertDontSee('Parcelas')
+        ->set('method', PaymentMethod::Card->value)
+        ->assertSee('Parcelas')
+        ->assertSee('12x')
+        ->set('installments', 3)
+        ->call('confirm')
+        ->assertHasNoErrors();
+
+    $payment = Payment::query()->sole();
+
+    expect($payment->installments)->toBe(3)
+        ->and($payment->financialEntries()->count())->toBe(3);
+});
+
+test('switching to a method without installments pays at once', function () {
+    actingAsRole('financeiro');
+    $invoice = Invoice::factory()->create();
+
+    Livewire::test('billing.payment-modal')
+        ->call('open', $invoice->id)
+        ->set('method', PaymentMethod::Boleto->value)
+        ->set('installments', 6)
+        ->set('method', PaymentMethod::Pix->value)
+        ->assertSet('installments', 1)
+        ->assertDontSee('Parcelas');
+});
+
+test('choosing a period updates the amount and defaults card installments to one per month', function () {
+    actingAsRole('financeiro');
+    $customer = Customer::factory()->withCard()->for(Plan::factory()->state(['price' => '89.90']))->create();
+    $invoice = Invoice::factory()->for($customer)->forMonth('2026-10')->create(['amount' => '89.90']);
+
+    $component = Livewire::test('billing.payment-modal')
+        ->call('open', $invoice->id)
+        ->set('method', PaymentMethod::Card->value)
+        ->set('months', 12)
+        ->assertSet('amount', '1.078,80')
+        ->assertSet('installments', 12)
+        ->assertSee('Referência 10/2026 a 09/2027')
+        ->call('confirm')
+        ->assertHasNoErrors();
+
+    $payment = Payment::query()->sole();
+
+    $component->assertDispatched('notify', description: "{$customer->name} · ref. 10/2026 a 09/2027");
+
+    expect($payment->months)->toBe(12)
+        ->and($payment->installments)->toBe(12)
+        ->and($customer->invoices()->where('invoice_status_id', InvoiceStatus::Paid->id())->count())->toBe(12);
+});

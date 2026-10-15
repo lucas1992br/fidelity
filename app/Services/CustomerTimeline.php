@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Enums\CardStatus;
-use App\Enums\PaymentMethod;
 use App\Models\Card;
 use App\Models\CardStatusLog;
 use App\Models\Customer;
@@ -185,10 +184,10 @@ class CustomerTimeline
             ->flatMap(function (Payment $payment): array {
                 $receipt = "Recibo nº {$payment->receipt_number}";
                 $amount = Format::money($payment->amount);
-                $reference = 'ref. '.$payment->invoice->reference_month->format('m/Y');
+                $reference = 'ref. '.$payment->referencePeriod();
 
                 $events = [$this->event($payment->created_at, self::PAYMENT, 'Pagamento recebido',
-                    implode(' · ', [$receipt, PaymentMethod::fromId($payment->payment_method_id)->label(), $amount, $reference]), $payment->user)];
+                    implode(' · ', [$receipt, $payment->methodLabel(), $amount, $reference]), $payment->user)];
 
                 if ($payment->isRefunded()) {
                     $events[] = $this->event($payment->refunded_at, self::REFUND, 'Pagamento estornado',

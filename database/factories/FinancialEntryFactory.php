@@ -103,6 +103,7 @@ class FinancialEntryFactory extends Factory
                 'paid_at' => $payment->paid_at->toDateString(),
                 'payment_method_id' => $payment->payment_method_id,
                 'payment_id' => $payment->id,
+                'installment_number' => 1,
                 'supplier_or_payer' => null,
                 'user_id' => $payment->user_id,
             ];

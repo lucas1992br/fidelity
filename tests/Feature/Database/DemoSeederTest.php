@@ -22,7 +22,7 @@ test('the demo seeder runs in local and its data follows the domain rules', func
     seedDatabaseIn('local');
 
     $customersWithManyCurrentCards = Card::current()->groupBy('customer_id')->havingRaw('count(*) > 1')->pluck('customer_id');
-    $activePayments = Payment::query()->whereNull('refunded_at')->withCount('financialEntry')->get();
+    $activePayments = Payment::query()->whereNull('refunded_at')->withCount('financialEntries')->get();
     $dependentsOverLimit = Customer::query()->with('plan')->withCount('dependents')->get()
         ->filter(fn (Customer $customer): bool => $customer->dependents_count > $customer->plan->max_dependents);
     $customersPastSuspensionLimit = Invoice::overdue()
@@ -38,7 +38,7 @@ test('the demo seeder runs in local and its data follows the domain rules', func
         ->and(Card::withStatus(CardStatusEnum::Suspended)->count())->toBeGreaterThan(0)
         ->and(Card::withStatus(CardStatusEnum::Cancelled)->count())->toBeGreaterThan(0)
         ->and($activePayments)->not->toBeEmpty()
-        ->and($activePayments->every(fn (Payment $payment): bool => $payment->financial_entry_count === 1))->toBeTrue()
+        ->and($activePayments->every(fn (Payment $payment): bool => $payment->financial_entries_count === 1))->toBeTrue()
         ->and(Invoice::whereNotNull('paid_at')->count())->toBe($activePayments->count())
         ->and(Invoice::overdue()->count())->toBeGreaterThan(0)
         ->and($customersPastSuspensionLimit)->toBe($suspendedCustomers)

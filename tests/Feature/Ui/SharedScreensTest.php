@@ -8,13 +8,13 @@ beforeEach(function () {
     $this->withoutVite();
 });
 
-test('guest layout centers the slot under the brand with the clinic name from settings', function () {
+test('guest layout centers the slot under the logo, described by the clinic name from settings', function () {
     $settings = app(ClinicSettings::class);
     $settings->clinic_name = 'Clínica São Lucas';
     $settings->save();
 
     $this->view('layouts.guest', ['slot' => new HtmlString('<form id="login"></form>')])
-        ->assertSeeInOrder(['M3.22 12H9.5', 'Clínica São Lucas', 'Cartão fidelidade', '<form id="login">'], false);
+        ->assertSeeInOrder(['src="'.asset('images/logo.png').'" alt="Clínica São Lucas"', '<form id="login">'], false);
 });
 
 test('a forbidden request renders the pt-BR 403 page with a link to the home page', function () {

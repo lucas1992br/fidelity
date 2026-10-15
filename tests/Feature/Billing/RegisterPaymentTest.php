@@ -13,6 +13,7 @@ use App\Models\FinancialCategory;
 use App\Models\FinancialEntry;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\Plan;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
 
@@ -69,7 +70,7 @@ test('the payment creates the receipt, pays the invoice and books one income in 
     expect($invoice->hasStatus(InvoiceStatus::Paid))->toBeTrue()
         ->and($invoice->paid_at->toDateString())->toBe('2026-10-15');
 
-    $entry = $payment->financialEntry()->sole();
+    $entry = $payment->financialEntries()->sole();
     expect($entry->entry_type_id)->toBe(EntryType::Income->id())
         ->and($entry->financial_category_id)->toBe(FinancialCategory::monthlyFees()->id)
         ->and($entry->entry_status_id)->toBe(EntryStatus::Paid->id())
@@ -90,7 +91,7 @@ test('an amount below the invoice is rejected and a higher one is accepted', fun
     $payment = registerPayment($invoice, ['amount' => '95.00']);
 
     expect($payment->amount)->toBe('95.00')
-        ->and($payment->financialEntry->amount)->toBe('95.00');
+        ->and($payment->financialEntries()->sole()->amount)->toBe('95.00');
 });
 
 test('paid and cancelled invoices are rejected', function (string $state, string $message) {
@@ -158,4 +159,107 @@ test('a cancelled card is never reactivated by a payment', function () {
 
     expect($card->refresh()->hasStatus(CardStatus::Cancelled))->toBeTrue()
         ->and($card->statusLogs()->count())->toBe(0);
+});
+
+test('a card payment in 3 installments pays the invoice and books one pending income per month', function () {
+    $customer = Customer::factory()->withCard()->create(['name' => 'Maria Aparecida Souza']);
+    $invoice = Invoice::factory()->for($customer)->forMonth('2026-10')->create(['amount' => '100.00']);
+
+    $payment = registerPayment($invoice, ['paid_at' => '2026-10-31', 'payment_method' => PaymentMethod::Card->value, 'installments' => 3]);
+
+    expect($payment->installments)->toBe(3)
+        ->and($payment->amount)->toBe('100.00');
+
+    expect($invoice->refresh()->hasStatus(InvoiceStatus::Paid))->toBeTrue();
+
+    $entries = $payment->financialEntries()->get();
+
+    expect($entries->pluck('installment_number')->all())->toBe([1, 2, 3])
+        ->and($entries->pluck('amount')->all())->toBe(['33.34', '33.33', '33.33'])
+        ->and($entries->map(fn (FinancialEntry $entry): string => $entry->due_date->toDateString())->all())->toBe(['2026-10-31', '2026-11-30', '2026-12-31'])
+        ->and($entries->pluck('entry_status_id')->unique()->all())->toBe([EntryStatus::Pending->id()])
+        ->and($entries->pluck('paid_at')->filter()->all())->toBe([])
+        ->and($entries->pluck('payment_method_id')->unique()->all())->toBe([PaymentMethod::Card->id()])
+        ->and($entries->pluck('financial_category_id')->unique()->all())->toBe([FinancialCategory::monthlyFees()->id])
+        ->and($entries->last()->description)->toBe('Mensalidade 10/2026 - Maria Aparecida Souza (parcela 3/3)');
+});
+
+test('a boleto payment may be split into 12 installments', function () {
+    $invoice = Invoice::factory()->create(['amount' => '120.00']);
+
+    $payment = registerPayment($invoice, ['payment_method' => PaymentMethod::Boleto->value, 'installments' => 12]);
+
+    expect($payment->financialEntries()->count())->toBe(12)
+        ->and($payment->financialEntries()->sum('amount'))->toBe('120.00');
+});
+
+test('only card and boleto payments may be split into installments', function (PaymentMethod $method) {
+    $invoice = Invoice::factory()->create();
+
+    expect(paymentError(fn () => registerPayment($invoice, ['payment_method' => $method->value, 'installments' => 2]), 'installments'))
+        ->toBe('Só é possível parcelar no cartão ou no boleto.')
+        ->and(Payment::count())->toBe(0);
+})->with([PaymentMethod::Pix, PaymentMethod::Cash]);
+
+test('more than 12 installments are rejected', function () {
+    $invoice = Invoice::factory()->create();
+
+    expect(paymentError(fn () => registerPayment($invoice, ['payment_method' => PaymentMethod::Card->value, 'installments' => 13]), 'installments'))
+        ->toBe('O campo parcelas deve ser entre 1 e 12.')
+        ->and(Payment::count())->toBe(0);
+});
+
+test('a year of plan issues the missing months, pays all of them and splits the total into 12 monthly installments', function () {
+    $customer = Customer::factory()->withCard()->for(Plan::factory()->state(['price' => '89.90']))->create(['name' => 'Maria Aparecida Souza', 'due_day' => 10]);
+    $october = Invoice::factory()->for($customer)->forMonth('2026-10')->create(['amount' => '89.90']);
+
+    $payment = registerPayment($october, [
+        'amount' => '1078.80',
+        'payment_method' => PaymentMethod::Card->value,
+        'months' => 12,
+        'installments' => 12,
+    ]);
+
+    $invoices = $customer->invoices()->orderBy('reference_month')->get();
+
+    expect($payment->months)->toBe(12)
+        ->and($payment->invoice_id)->toBe($october->id)
+        ->and($payment->invoices()->pluck('invoices.id')->all())->toBe($invoices->modelKeys());
+
+    expect($invoices->map(fn (Invoice $invoice): string => $invoice->reference_month->format('Y-m'))->all())
+        ->toBe(['2026-10', '2026-11', '2026-12', '2027-01', '2027-02', '2027-03', '2027-04', '2027-05', '2027-06', '2027-07', '2027-08', '2027-09'])
+        ->and($invoices->every(fn (Invoice $invoice): bool => $invoice->hasStatus(InvoiceStatus::Paid)))->toBeTrue()
+        ->and($invoices->last()->due_date->toDateString())->toBe('2027-09-10')
+        ->and($invoices->last()->activePayment()->sole()->is($payment))->toBeTrue();
+
+    $entries = $payment->financialEntries()->get();
+
+    expect($entries)->toHaveCount(12)
+        ->and($entries->pluck('amount')->unique()->all())->toBe(['89.90'])
+        ->and($entries->first()->description)->toBe('Mensalidades 10/2026 a 09/2027 - Maria Aparecida Souza (parcela 1/12)');
+});
+
+test('the period total adds the frozen amount of invoiced months to the plan price of the others', function () {
+    $customer = Customer::factory()->for(Plan::factory()->state(['price' => '100.00']))->create();
+    $october = Invoice::factory()->for($customer)->forMonth('2026-10')->create(['amount' => '89.90']);
+    Invoice::factory()->for($customer)->forMonth('2026-11')->create(['amount' => '95.00']);
+
+    expect(paymentError(fn () => registerPayment($october, ['amount' => '284.89', 'months' => 3]), 'amount'))
+        ->toBe('O valor recebido não pode ser menor que R$ 284,90.');
+
+    $payment = registerPayment($october, ['amount' => '284.90', 'months' => 3]);
+
+    expect($payment->financialEntries()->sole()->amount)->toBe('284.90')
+        ->and($payment->financialEntries()->sole()->description)->toEndWith('10/2026 a 12/2026 - '.$customer->name);
+});
+
+test('a period with a month already paid is rejected and issues nothing', function () {
+    $customer = Customer::factory()->create();
+    $october = Invoice::factory()->for($customer)->forMonth('2026-10')->create();
+    Invoice::factory()->for($customer)->forMonth('2026-12')->paid()->create();
+
+    expect(paymentError(fn () => registerPayment($october, ['amount' => '9999.00', 'months' => 3]), 'invoice'))
+        ->toBe('A mensalidade 12/2026 já foi paga.')
+        ->and(Payment::count())->toBe(0)
+        ->and($customer->invoices()->count())->toBe(2);
 });

@@ -10,8 +10,9 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 use Illuminate\Support\Carbon;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -106,7 +107,7 @@ class Invoice extends Model
     }
 
     /**
-     * Every payment, including refunded ones.
+     * Payments registered on this invoice (its first covered month), including refunded ones.
      *
      * @return HasMany<Payment, $this>
      */
@@ -116,13 +117,25 @@ class Invoice extends Model
     }
 
     /**
-     * The non-refunded payment; at most one per invoice.
+     * Every payment covering the invoice, including multi-month payments
+     * registered on an earlier invoice.
      *
-     * @return HasOne<Payment, $this>
+     * @return BelongsToMany<Payment, $this>
      */
-    public function activePayment(): HasOne
+    public function coveringPayments(): BelongsToMany
     {
-        return $this->hasOne(Payment::class)->whereNull('refunded_at');
+        return $this->belongsToMany(Payment::class)->using(InvoicePayment::class)->withTimestamps();
+    }
+
+    /**
+     * The non-refunded payment covering the invoice; at most one per invoice.
+     *
+     * @return HasOneThrough<Payment, InvoicePayment, $this>
+     */
+    public function activePayment(): HasOneThrough
+    {
+        return $this->hasOneThrough(Payment::class, InvoicePayment::class, 'invoice_id', 'id', 'id', 'payment_id')
+            ->whereNull('payments.refunded_at');
     }
 
     /**

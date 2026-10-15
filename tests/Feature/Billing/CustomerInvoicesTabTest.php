@@ -83,7 +83,7 @@ test('refunding through the sheet returns the invoice to open or overdue', funct
     expect($invoice->hasStatus($expected))->toBeTrue()
         ->and($invoice->paid_at)->toBeNull()
         ->and($payment->refund_reason)->toBe('Lançado em duplicidade')
-        ->and($payment->financialEntry->entry_status_id)->toBe(EntryStatus::Cancelled->id());
+        ->and($payment->financialEntries()->sole()->entry_status_id)->toBe(EntryStatus::Cancelled->id());
 })->with([
     'not yet due' => ['2026-10-20', InvoiceStatus::Open],
     'past due' => ['2026-10-10', InvoiceStatus::Overdue],

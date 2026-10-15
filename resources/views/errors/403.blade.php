@@ -7,13 +7,14 @@
         <title>Acesso negado · Cartão Fidelidade</title>
 
         <link rel="icon" href="/favicon.ico" sizes="any">
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+        <link rel="icon" href="/favicon.png" type="image/png" sizes="192x192">
 
         @fonts
         @vite(['resources/css/app.css'])
     </head>
     <body>
-        <main class="flex min-h-screen items-center justify-center px-4 py-10">
+        <main class="flex min-h-screen flex-col items-center justify-center gap-8 px-4 py-10">
+            <img src="{{ asset('images/logo.png') }}" alt="Policlínica" class="h-auto w-[240px] max-w-full" data-slot="logo">
             <x-ui.card size="hero" padding="px-6 py-14" class="flex w-full max-w-[520px] flex-col items-center gap-2 text-center">
                 <span class="mb-2 flex size-12 items-center justify-center rounded-full bg-danger-50 text-danger-700">
                     <x-ui.icon name="shield-alert" class="size-6" />

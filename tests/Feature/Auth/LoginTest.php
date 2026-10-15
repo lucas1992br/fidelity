@@ -9,7 +9,7 @@ beforeEach(function () {
 test('login page renders the form in the guest layout', function () {
     $this->get(route('login'))
         ->assertOk()
-        ->assertSee('Cartão fidelidade')
+        ->assertSee('data-slot="logo"', false)
         ->assertSee('action="'.route('login.store').'"', false)
         ->assertSee('name="_token"', false)
         ->assertSee('name="email"', false)

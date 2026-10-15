@@ -15,6 +15,7 @@
         table { width: 100%; border-collapse: collapse; }
         .header { border-bottom: 3px solid #2e78f2; padding-bottom: 12px; }
         .header td { vertical-align: top; }
+        .logo { width: 200px; height: auto; margin-bottom: 8px; }
         .clinic-name { font-size: 17px; font-weight: bold; color: #112d63; }
         .muted { color: #6a7385; }
         .title { font-size: 18px; font-weight: bold; color: #112d63; text-align: right; }
@@ -39,6 +40,7 @@
     <table class="header">
         <tr>
             <td>
+                <img src="{{ public_path('images/logo.png') }}" alt="{{ $clinic->clinic_name }}" class="logo">
                 <div class="clinic-name">{{ $clinic->clinic_name }}</div>
                 @if ($clinic->clinic_cnpj)
                     <div class="muted">CNPJ {{ $clinic->clinic_cnpj }}</div>

@@ -37,6 +37,16 @@ class PaymentFactory extends Factory
     }
 
     /**
+     * Link the payment to its invoice in `invoice_payment`, as RegisterPayment does.
+     */
+    public function configure(): static
+    {
+        return $this->afterCreating(function (Payment $payment): void {
+            $payment->invoices()->syncWithoutDetaching([$payment->invoice_id]);
+        });
+    }
+
+    /**
      * Payment made with the given method.
      */
     public function method(PaymentMethodEnum $method): static

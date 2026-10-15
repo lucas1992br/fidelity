@@ -25,6 +25,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property Carbon|null $paid_at
  * @property int|null $payment_method_id
  * @property int|null $payment_id
+ * @property int|null $installment_number
  * @property string|null $supplier_or_payer
  * @property string|null $notes
  * @property int $user_id
@@ -52,6 +53,7 @@ class FinancialEntry extends Model
         'paid_at',
         'payment_method_id',
         'payment_id',
+        'installment_number',
         'supplier_or_payer',
         'notes',
         'user_id',
@@ -91,6 +93,7 @@ class FinancialEntry extends Model
             'amount' => 'decimal:2',
             'due_date' => 'date',
             'paid_at' => 'date',
+            'installment_number' => 'integer',
         ];
     }
 

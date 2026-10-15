@@ -18,7 +18,7 @@
         <title>{{ $pageTitle }} · Cartão Fidelidade</title>
 
         <link rel="icon" href="/favicon.ico" sizes="any">
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+        <link rel="icon" href="/favicon.png" type="image/png" sizes="192x192">
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
         @fonts
@@ -27,14 +27,9 @@
     <body x-data x-on:keydown.f2.window.prevent="Livewire.navigate('{{ route('quick-search') }}')">
         <div class="flex min-h-screen text-ink-700">
             <aside class="sticky top-0 flex h-screen w-64 flex-none flex-col gap-5 overflow-y-auto border-r border-ink-100 bg-white px-3 py-5 compact:w-[72px]">
-                <div class="flex items-center gap-2.5 px-2">
-                    <div class="flex size-9 flex-none items-center justify-center rounded-md bg-guardian-500 text-white">
-                        <x-ui.icon name="heart-pulse" class="size-5" />
-                    </div>
-                    <div class="flex flex-col leading-[1.15] compact:hidden">
-                        <span class="font-display text-[17px] font-bold tracking-[-0.01em] text-ink-800">{{ $clinicName }}</span>
-                        <span class="text-xs text-ink-500">Cartão fidelidade</span>
-                    </div>
+                <div class="px-2">
+                    <img src="{{ asset('images/logo.png') }}" alt="{{ $clinicName }}" class="h-auto w-full compact:hidden" data-slot="logo">
+                    <img src="{{ asset('images/logo-mark.png') }}" alt="{{ $clinicName }}" class="hidden h-auto w-full compact:block" data-slot="logo-mark">
                 </div>
 
                 <nav class="flex flex-col gap-4">

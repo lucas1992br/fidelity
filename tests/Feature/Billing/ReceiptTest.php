@@ -73,3 +73,18 @@ test('no file is written to the storage', function () {
     expect(Storage::disk('local')->allFiles())->toBeEmpty()
         ->and(Storage::disk('public')->allFiles())->toBeEmpty();
 });
+
+test('the receipt view shows the installments of a split payment', function () {
+    $payment = Payment::factory()->method(PaymentMethod::Card)->create(['installments' => 3])->refresh();
+
+    $html = view('pdf.receipt', [
+        'payment' => $payment,
+        'invoice' => $payment->invoice,
+        'customer' => $payment->invoice->customer,
+        'card' => null,
+        'method' => PaymentMethod::Card,
+        'clinic' => app(ClinicSettings::class),
+    ])->render();
+
+    expect($html)->toContain('Cartão em 3x');
+});

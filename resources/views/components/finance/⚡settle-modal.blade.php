@@ -3,6 +3,7 @@
 use App\Actions\Finance\SettleFinancialEntry;
 use App\Enums\EntryStatus;
 use App\Enums\EntryType;
+use App\Enums\PaymentMethod as PaymentMethodEnum;
 use App\Models\FinancialEntry;
 use App\Models\PaymentMethod;
 use App\Support\Format;
@@ -45,7 +46,9 @@ new class extends Component
         $this->resetValidation();
         $this->entryId = $found->id;
         $this->paidAt = today()->format('d/m/Y');
-        $this->method = $this->methods->first()?->slug->value ?? '';
+        $this->method = $found->payment_method_id
+            ? PaymentMethodEnum::fromId($found->payment_method_id)->value
+            : ($this->methods->first()?->slug->value ?? '');
         unset($this->entry);
     }
 

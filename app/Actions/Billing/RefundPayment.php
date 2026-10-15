@@ -4,7 +4,9 @@ namespace App\Actions\Billing;
 
 use App\Enums\EntryStatus as EntryStatusEnum;
 use App\Enums\InvoiceStatus as InvoiceStatusEnum;
+use App\Models\FinancialEntry;
 use App\Models\Invoice;
+use App\Models\InvoicePayment;
 use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -14,8 +16,9 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Refund a payment registered by mistake (US-9.4, admin only). The payment is
- * kept with the refund stamp, the invoice returns to `open` (not yet due) or
- * `overdue` with `paid_at` cleared, and the linked income entry is cancelled.
+ * kept with the refund stamp, every covered invoice returns to `open` (not yet due) or
+ * `overdue` with `paid_at` cleared, and the linked income entries (every
+ * installment, received or not) are cancelled.
  * Nothing is deleted and the refund is recorded in the activity log.
  *
  * The card status is not touched: the daily routine re-evaluates suspension.
@@ -37,7 +40,11 @@ class RefundPayment
         ], [], ['reason' => 'motivo'])->validate();
 
         return DB::transaction(function () use ($payment, $validated, $user): Payment {
-            $invoice = Invoice::query()->lockForUpdate()->findOrFail($payment->invoice_id);
+            $invoices = Invoice::query()
+                ->whereIn('id', InvoicePayment::query()->select('invoice_id')->where('payment_id', $payment->id))
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
             $payment = Payment::query()->lockForUpdate()->findOrFail($payment->id);
 
             if ($payment->isRefunded()) {
@@ -50,16 +57,16 @@ class RefundPayment
                 'refund_reason' => $validated['reason'],
             ])->save();
 
-            $invoice->forceFill([
+            $invoices->each(fn (Invoice $invoice): bool => $invoice->forceFill([
                 'invoice_status_id' => $invoice->due_date->gte(today())
                     ? InvoiceStatusEnum::Open->id()
                     : InvoiceStatusEnum::Overdue->id(),
                 'paid_at' => null,
-            ])->save();
+            ])->save());
 
-            $payment->financialEntry()->first()?->forceFill([
+            $payment->financialEntries()->get()->each(fn (FinancialEntry $entry): bool => $entry->forceFill([
                 'entry_status_id' => EntryStatusEnum::Cancelled->id(),
-            ])->save();
+            ])->save());
 
             activity('billing')
                 ->performedOn($payment)

@@ -43,7 +43,7 @@
                         <td>#{{ $payment->receipt_number }}</td>
                         <td>{{ \App\Support\Format::date($payment->paid_at) }}</td>
                         <td class="strong">{{ $payment->invoice->customer->name }}</td>
-                        <td>{{ $payment->invoice->reference_month->format('m/Y') }}</td>
+                        <td>{{ $payment->referencePeriod() }}</td>
                         <td>{{ $payment->isRefunded() ? 'Estornado em '.$payment->refunded_at->format('d/m/Y') : 'Recebido' }}</td>
                         <td class="number">{{ \App\Support\Format::money($payment->amount) }}</td>
                     </tr>

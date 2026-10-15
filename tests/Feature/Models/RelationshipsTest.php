@@ -201,7 +201,7 @@ test('payment relationships reach method, users and its automatic entry', functi
         ->and($registeredBy->payments->pluck('id')->all())->toBe([$payment->id])
         ->and($refunded->refundedBy->is($refundedBy))->toBeTrue()
         ->and($refundedBy->refundedPayments->pluck('id')->all())->toBe([$refunded->id])
-        ->and($payment->financialEntry->is($entry))->toBeTrue()
+        ->and($payment->financialEntries->pluck('id')->all())->toBe([$entry->id])
         ->and($entry->payment->is($payment))->toBeTrue()
         ->and($entry->user->is($registeredBy))->toBeTrue()
         ->and($registeredBy->financialEntries->pluck('id')->all())->toBe([$entry->id]);

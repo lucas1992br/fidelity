@@ -2,6 +2,7 @@
 
 use App\Actions\Billing\RefundPayment;
 use App\Actions\Billing\RegisterPayment;
+use App\Actions\Finance\SettleFinancialEntry;
 use App\Enums\CardStatus;
 use App\Enums\EntryStatus;
 use App\Enums\InvoiceStatus;
@@ -57,7 +58,7 @@ test('the linked income is cancelled and the payment is kept with the refund sta
     expect($payment->refunded_at->toDateTimeString())->toBe('2026-10-15 10:00:00')
         ->and($payment->refunded_by_user_id)->toBe($this->admin->id)
         ->and($payment->refund_reason)->toBe('Erro de digitação')
-        ->and($payment->financialEntry->entry_status_id)->toBe(EntryStatus::Cancelled->id())
+        ->and($payment->financialEntries()->sole()->entry_status_id)->toBe(EntryStatus::Cancelled->id())
         ->and(Activity::query()->where('event', 'refunded')->where('subject_id', $payment->id)->exists())->toBeTrue();
 });
 
@@ -101,4 +102,36 @@ test('after the refund the invoice can be paid again with a new receipt', functi
         ->and($invoice->refresh()->hasStatus(InvoiceStatus::Paid))->toBeTrue()
         ->and($invoice->activePayment->is($second))->toBeTrue()
         ->and($invoice->payments()->count())->toBe(2);
+});
+
+test('refunding an installment payment cancels every installment, received or not', function () {
+    $payment = app(RegisterPayment::class)->handle(Invoice::factory()->create(['amount' => '90.00']), [
+        'paid_at' => '2026-10-15',
+        'amount' => '90.00',
+        'payment_method' => PaymentMethod::Card->value,
+        'installments' => 3,
+    ], $this->admin);
+    app(SettleFinancialEntry::class)->handle($payment->financialEntries()->first(), ['paid_at' => '2026-10-15', 'payment_method' => PaymentMethod::Card->value]);
+
+    app(RefundPayment::class)->handle($payment, null, $this->admin);
+
+    expect($payment->financialEntries()->pluck('entry_status_id')->all())
+        ->toBe(array_fill(0, 3, EntryStatus::Cancelled->id()));
+});
+
+test('refunding a multi-month payment reopens every covered month', function () {
+    $october = Invoice::factory()->forMonth('2026-10')->create(['amount' => '50.00']);
+    $november = Invoice::factory()->for($october->customer)->forMonth('2026-11')->create(['amount' => '50.00']);
+    $payment = app(RegisterPayment::class)->handle($october, [
+        'paid_at' => '2026-10-15',
+        'amount' => '100.00',
+        'payment_method' => PaymentMethod::Pix->value,
+        'months' => 2,
+    ], $this->admin);
+
+    app(RefundPayment::class)->handle($payment, null, $this->admin);
+
+    expect($october->refresh()->hasStatus(InvoiceStatus::Overdue))->toBeTrue()
+        ->and($november->refresh()->hasStatus(InvoiceStatus::Open))->toBeTrue()
+        ->and($november->paid_at)->toBeNull();
 });

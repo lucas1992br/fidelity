@@ -22,4 +22,12 @@ enum PaymentMethod: string
             self::Boleto => 'Boleto',
         };
     }
+
+    /**
+     * Whether an invoice paid with this method may be split into installments.
+     */
+    public function allowsInstallments(): bool
+    {
+        return in_array($this, [self::Card, self::Boleto], true);
+    }
 }

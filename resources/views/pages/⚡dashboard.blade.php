@@ -129,7 +129,7 @@ new class extends Component
                     <tr wire:key="payment-{{ $payment->id }}">
                         <td class="font-mono text-[13px] text-ink-500">#{{ $payment->receipt_number }}</td>
                         <td class="font-semibold text-ink-800">{{ $payment->invoice->customer->name }}</td>
-                        <td>{{ $payment->invoice->reference_month->format('m/Y') }}</td>
+                        <td>{{ $payment->referencePeriod() }}</td>
                         <td>{{ PaymentMethod::fromId($payment->payment_method_id)->label() }}</td>
                         <td>{{ Format::date($payment->paid_at) }}</td>
                         <td class="text-right font-semibold text-ink-800">{{ Format::money($payment->amount) }}</td>

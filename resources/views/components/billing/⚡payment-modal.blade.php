@@ -1,9 +1,12 @@
 <?php
 
+use App\Actions\Billing\PaymentPeriodAmount;
 use App\Actions\Billing\PaymentWillReactivateCard;
 use App\Actions\Billing\RegisterPayment;
 use App\Enums\InvoiceStatus;
+use App\Enums\PaymentMethod as PaymentMethodEnum;
 use App\Models\Invoice;
+use App\Models\Payment;
 use App\Models\PaymentMethod;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -17,7 +20,10 @@ use Livewire\Component;
  * Payment modal (US-9.1, US-9.2), opened by the `open-payment` event from the
  * quick search, the customer sheet and the billing screens. Confirming runs
  * `RegisterPayment`, shows the receipt toast and dispatches
- * `payment-registered` so the screens reload. Requires `billing.pay`.
+ * `payment-registered` so the screens reload. The payment may cover up to 12
+ * months from the invoice's month (the amount follows the period) and card or
+ * boleto payments may be split into up to 12 installments, one per covered
+ * month by default. Requires `billing.pay`.
  */
 new class extends Component
 {
@@ -28,6 +34,10 @@ new class extends Component
     public string $amount = '';
 
     public string $method = '';
+
+    public int $months = 1;
+
+    public int $installments = 1;
 
     public string $notes = '';
 
@@ -46,7 +56,7 @@ new class extends Component
         }
 
         $this->resetValidation();
-        $this->reset('notes');
+        $this->reset('notes', 'months', 'installments');
         $this->invoiceId = $found->id;
         $this->paidAt = today()->format('d/m/Y');
         $this->amount = number_format((float) $found->amount, 2, ',', '.');
@@ -54,9 +64,36 @@ new class extends Component
         unset($this->invoice, $this->willReactivateCard);
     }
 
+    /**
+     * The amount follows the period, and card or boleto default to one installment per month.
+     */
+    public function updatedMonths(): void
+    {
+        $this->months = max(1, min(Payment::MaxMonths, $this->months));
+
+        if ($this->invoice !== null) {
+            $this->amount = number_format((float) app(PaymentPeriodAmount::class)->handle($this->invoice, $this->months), 2, ',', '.');
+        }
+
+        $this->installments = $this->defaultInstallments();
+    }
+
+    /**
+     * Only card and boleto are split; switching to another method pays at once.
+     */
+    public function updatedMethod(): void
+    {
+        $this->installments = $this->defaultInstallments();
+    }
+
+    protected function defaultInstallments(): int
+    {
+        return $this->allowsInstallments ? min($this->months, Payment::MaxInstallments) : 1;
+    }
+
     public function close(): void
     {
-        $this->reset('invoiceId', 'notes');
+        $this->reset('invoiceId', 'notes', 'months', 'installments');
         $this->resetValidation();
     }
 
@@ -80,6 +117,54 @@ new class extends Component
     public function methods(): Collection
     {
         return PaymentMethod::query()->active()->orderBy('id')->get();
+    }
+
+    /**
+     * Whether the chosen method may be split into installments.
+     */
+    #[Computed]
+    public function allowsInstallments(): bool
+    {
+        return PaymentMethodEnum::tryFrom($this->method)?->allowsInstallments() ?? false;
+    }
+
+    /**
+     * Period choices: "1 mês" up to "12 meses (1 ano)".
+     *
+     * @return array<int, string>
+     */
+    #[Computed]
+    public function monthOptions(): array
+    {
+        return collect(range(1, Payment::MaxMonths))
+            ->mapWithKeys(fn (int $count): array => [$count => match ($count) {
+                1 => '1 mês',
+                12 => '12 meses (1 ano)',
+                default => "{$count} meses",
+            }])
+            ->all();
+    }
+
+    /**
+     * Covered months, e.g. "10/2026 a 09/2027", shown under the period.
+     */
+    #[Computed]
+    public function periodLabel(): string
+    {
+        return Payment::formatPeriod($this->invoice->reference_month, $this->months);
+    }
+
+    /**
+     * Installment choices: "À vista" and "2x" up to the maximum.
+     *
+     * @return array<int, string>
+     */
+    #[Computed]
+    public function installmentOptions(): array
+    {
+        return collect(range(1, Payment::MaxInstallments))
+            ->mapWithKeys(fn (int $count): array => [$count => $count === 1 ? 'À vista' : "{$count}x"])
+            ->all();
     }
 
     /**
@@ -109,8 +194,10 @@ new class extends Component
             'paidAt' => ['required', 'date_format:d/m/Y'],
             'amount' => ['required', 'regex:/^\d{1,3}(\.?\d{3})*(,\d{1,2})?$/'],
             'method' => ['required', Rule::in($this->methods->map(fn (PaymentMethod $method): string => $method->slug->value)->all())],
+            'months' => ['required', 'integer', 'between:1,'.Payment::MaxMonths],
+            'installments' => ['required', 'integer', 'between:1,'.Payment::MaxInstallments],
             'notes' => ['nullable', 'string', 'max:1000'],
-        ], [], ['paidAt' => 'data do pagamento', 'amount' => 'valor recebido', 'method' => 'forma de pagamento', 'notes' => 'observação']);
+        ], [], ['paidAt' => 'data do pagamento', 'amount' => 'valor recebido', 'method' => 'forma de pagamento', 'months' => 'período', 'installments' => 'parcelas', 'notes' => 'observação']);
 
         $reactivatesCard = $this->willReactivateCard;
 
@@ -119,6 +206,8 @@ new class extends Component
                 'paid_at' => CarbonImmutable::createFromFormat('!d/m/Y', $this->paidAt)->toDateString(),
                 'amount' => str_replace(['.', ','], ['', '.'], $this->amount),
                 'payment_method' => $this->method,
+                'months' => $this->months,
+                'installments' => $this->installments,
                 'notes' => $this->notes,
             ], auth()->user());
         } catch (ValidationException $exception) {
@@ -134,7 +223,7 @@ new class extends Component
             title: "Pagamento registrado · recibo nº {$payment->receipt_number}",
             description: $reactivatesCard
                 ? 'Cartão reativado por pagamento.'
-                : "{$invoice->customer->name} · ref. {$invoice->reference_month->format('m/Y')}",
+                : "{$invoice->customer->name} · ref. {$payment->referencePeriod()}",
             receiptUrl: route('receipts.show', $payment),
         );
         $this->dispatch('payment-registered', invoice: $invoice->id);
@@ -158,6 +247,11 @@ new class extends Component
                 <x-ui.callout tone="danger">{{ $message }}</x-ui.callout>
             @enderror
 
+            <x-ui.field label="Período" for="payment-months" error="months">
+                <x-ui.select id="payment-months" wire:model.live.number="months" error="months" :options="$this->monthOptions" />
+                <span class="text-xs text-ink-500" data-slot="payment-period">Referência {{ $this->periodLabel }}</span>
+            </x-ui.field>
+
             <div class="grid grid-cols-2 gap-3">
                 <x-ui.field error="paidAt">
                     <x-ui.input label="Data do pagamento" wire:model="paidAt" mask="date" error="paidAt" />
@@ -178,6 +272,12 @@ new class extends Component
                 </div>
                 @error('method') <span class="text-xs font-semibold text-danger-700" role="alert">{{ $message }}</span> @enderror
             </div>
+
+            @if ($this->allowsInstallments)
+                <x-ui.field label="Parcelas" for="payment-installments" error="installments">
+                    <x-ui.select id="payment-installments" wire:model.number="installments" error="installments" :options="$this->installmentOptions" />
+                </x-ui.field>
+            @endif
 
             <x-ui.field label="Observação" for="payment-notes" error="notes">
                 <x-ui.textarea id="payment-notes" wire:model="notes" error="notes" rows="2" placeholder="Opcional" />
