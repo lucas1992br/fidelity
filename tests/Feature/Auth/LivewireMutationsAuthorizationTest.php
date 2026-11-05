@@ -2,6 +2,7 @@
 
 use App\Enums\CardStatus;
 use App\Models\Card;
+use App\Models\CardTransaction;
 use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Dependent;
@@ -98,6 +99,16 @@ function livewireMutations(): array
             $payment = Payment::factory()->create();
 
             return [Livewire::test('pages::customers.show', ['customer' => $payment->invoice->customer])->call('openRefund', $payment->id), 'refund', []];
+        }],
+
+        // Conciliação de cartão
+        'conciliação · card-reconciliation::import' => [true, fn () => [Livewire::test('pages::finance.card-reconciliation'), 'import', []]],
+        'conciliação · card-reconciliation::retryPending' => [true, fn () => [Livewire::test('pages::finance.card-reconciliation'), 'retryPending', []]],
+        'conciliação · card-reconciliation::openLink' => [true, fn () => [Livewire::test('pages::finance.card-reconciliation'), 'openLink', [CardTransaction::factory()->create()->id]]],
+        'conciliação · card-reconciliation::link' => [true, function () {
+            $transaction = CardTransaction::factory()->create();
+
+            return [Livewire::test('pages::finance.card-reconciliation')->call('openLink', $transaction->id), 'link', ['customer', Customer::factory()->create()->id]];
         }],
 
         // Financeiro: lançamentos e categorias

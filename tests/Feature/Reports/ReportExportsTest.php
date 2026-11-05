@@ -2,11 +2,13 @@
 
 use App\Enums\PaymentMethod;
 use App\Exports\PaymentsExport;
+use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Dependent;
 use App\Models\FinancialEntry;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\PlanChange;
 use App\Reports\PaymentsReport;
 use App\Reports\Report;
 use Carbon\CarbonImmutable;
@@ -81,6 +83,9 @@ test('every report downloads as a PDF and as a real spreadsheet', function (stri
     $payment = Payment::factory()->for($invoice)->create(['paid_at' => '2026-10-10']);
     FinancialEntry::factory()->automatic($payment)->create();
     FinancialEntry::factory()->expense()->paid()->create(['due_date' => '2026-10-03', 'paid_at' => '2026-10-03']);
+    $employee = Customer::factory()->forCompany(Company::factory()->create())->withCard()->create();
+    Dependent::factory()->for($employee)->create();
+    PlanChange::factory()->for($employee)->sale()->create(['created_at' => '2026-10-05 09:00']);
 
     $report = new (Report::catalog()[$key])($this->from, $this->until);
     $pdf = $report->downloadPdf();
@@ -93,4 +98,4 @@ test('every report downloads as a PDF and as a real spreadsheet', function (stri
         ->and($pdf->headers->get('Content-Type'))->toBe('application/pdf')
         ->and($content)->toStartWith('%PDF')
         ->and($report->downloadExcel()->getFile()->getSize())->toBeGreaterThan(0);
-})->with(['clientes', 'mensalidades', 'inadimplencia', 'pagamentos', 'lancamentos', 'fluxo-de-caixa']);
+})->with(['clientes', 'empresas', 'mensalidades', 'inadimplencia', 'pagamentos', 'lancamentos', 'fluxo-de-caixa', 'vendas-por-atendente']);

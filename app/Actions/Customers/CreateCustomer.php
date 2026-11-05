@@ -27,6 +27,11 @@ use Illuminate\Validation\ValidationException;
  */
 class CreateCustomer
 {
+    /**
+     * Reason of the sign-up `plan_changes` row; it marks the sale and its seller.
+     */
+    public const string Reason = 'Adesão';
+
     public function __construct(
         protected AssignCard $assignCard,
         protected AddDependent $addDependent,
@@ -84,7 +89,7 @@ class CreateCustomer
                 'to_plan_id' => $plan->id,
                 'from_price' => null,
                 'to_price' => $validated['monthly_amount'],
-                'reason' => 'Adesão',
+                'reason' => self::Reason,
                 'user_id' => $user->id,
             ]);
 

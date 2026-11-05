@@ -114,6 +114,16 @@ class Company extends Model
     }
 
     /**
+     * Credit cards the company paid its bills with (first 6 and last 4 digits only).
+     *
+     * @return HasMany<PaymentCard, $this>
+     */
+    public function paymentCards(): HasMany
+    {
+        return $this->hasMany(PaymentCard::class);
+    }
+
+    /**
      * Only companies that may receive new employees.
      *
      * @param  Builder<self>  $query

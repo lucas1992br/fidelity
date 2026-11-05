@@ -26,8 +26,8 @@ beforeEach(function () {
     $this->until = CarbonImmutable::parse('2026-10-31');
 });
 
-test('the catalog lists the six reports', function () {
-    expect(array_keys(Report::catalog()))->toBe(['clientes', 'mensalidades', 'inadimplencia', 'pagamentos', 'lancamentos', 'fluxo-de-caixa']);
+test('the catalog lists the reports', function () {
+    expect(array_keys(Report::catalog()))->toBe(['clientes', 'empresas', 'mensalidades', 'inadimplencia', 'pagamentos', 'lancamentos', 'fluxo-de-caixa', 'vendas-por-atendente']);
 });
 
 test('payments grouped by method add up and leave refunded payments out', function () {

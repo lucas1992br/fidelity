@@ -56,7 +56,7 @@
     </table>
 
     <div class="title">Recibo de pagamento</div>
-    @if ($company)
+    @if ($company ?? null)
         <div class="muted">Recebemos de {{ $company->name }} o valor abaixo, referente à fatura mensal dos cartões fidelidade dos seus funcionários.</div>
     @else
         <div class="muted">Recebemos de {{ $customer->name }} o valor abaixo, referente à mensalidade do cartão fidelidade.</div>
@@ -68,7 +68,7 @@
     </div>
 
     <table class="fields">
-        @if ($company)
+        @if ($company ?? null)
             <tr><td class="label">Empresa</td><td class="value">{{ $company->name }}</td></tr>
             <tr><td class="label">CNPJ</td><td class="value">{{ $company->formatted_cnpj }}</td></tr>
             <tr><td class="label">Funcionários</td><td class="value">{{ $payment->invoices->count() }}</td></tr>

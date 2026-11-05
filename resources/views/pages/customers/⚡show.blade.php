@@ -372,6 +372,11 @@ new class extends Component
                 @endif
             </div>
             <span class="text-sm text-ink-500">Titular desde {{ \App\Support\Format::date($customer->joined_at) }} · Cartão {{ $this->card?->number ?? '—' }}</span>
+            @can('billing.view')
+                @if ($customer->paymentCards->isNotEmpty())
+                    <span class="text-sm text-ink-500">Cartão de cobrança: {{ $customer->paymentCards->map(fn ($card) => trim($card->brand.' '.$card->masked_number))->implode(', ') }}</span>
+                @endif
+            @endcan
             @if ($customer->company)
                 <span class="text-sm text-ink-500">Funcionário de <a href="{{ route('companies.show', $customer->company) }}" wire:navigate class="font-semibold text-guardian-700 hover:underline">{{ $customer->company->display_name }}</a></span>
             @endif

@@ -61,8 +61,8 @@ class PaymentFactory extends Factory
      */
     public function forCompanyBill(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'company_id' => Invoice::findOrFail((int) $attributes['invoice_id'])->company_id,
+        return $this->state([
+            'company_id' => fn (array $attributes): ?int => Invoice::findOrFail((int) $attributes['invoice_id'])->company_id,
         ]);
     }
 

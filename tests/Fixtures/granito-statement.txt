@@ -1,0 +1,6 @@
+﻿ID Granito;Data e Hora;Pdv;Tipo;Bandeira;Cartão;Meio de Captura;Documento Vinculado;Cod. Autorização;Cod. Transação;ID Pedido E-Commerce;Valor;Status
+1604141679;07/10/2026 - 15:21:18;0003;Crédito à Vista;Visa;498407-9593;POS;;269415;598100;;145;Aprovada
+1671699556;07/10/2026 - 10:35:59;0003;Crédito à Vista;Visa;485464-4673;POS;;864924;353942;;145;Aprovada
+1604005595;07/10/2026 - 10:07:36;0003;Crédito à Vista;Mastercard;223762-2880;POS;;603055;109910;;85;Aprovada
+1671685944;07/10/2026 - 10:02:20;0003;Crédito 5X;Visa;498408-2714;POS;;714446;305743;;2350;Aprovada
+1671679082;07/10/2026 - 09:45:33;0003;Crédito 2X;Mastercard;223702-7750;POS;;078092;793121;;205;Aprovada

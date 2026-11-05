@@ -10,6 +10,7 @@
     $maskAttributes = match ($mask) {
         'cpf' => ['x-mask' => '999.999.999-99', 'inputmode' => 'numeric'],
         'cnpj' => ['x-mask' => '99.999.999/9999-99', 'inputmode' => 'numeric'],
+        'card-digits' => ['x-mask' => '999999-9999', 'inputmode' => 'numeric', 'placeholder' => '498407-9593'],
         'phone' => ['x-mask:dynamic' => "\$input.replace(/\\D/g, '').length > 10 ? '(99) 99999-9999' : '(99) 9999-99999'", 'inputmode' => 'tel'],
         'zip' => ['x-mask' => '99999-999', 'inputmode' => 'numeric'],
         'date' => ['x-mask' => '99/99/9999', 'inputmode' => 'numeric', 'placeholder' => 'dd/mm/aaaa'],

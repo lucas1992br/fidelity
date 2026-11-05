@@ -25,11 +25,14 @@ abstract class Report
 
     public const string FilterStatus = 'status';
 
+    public const string FilterUser = 'user';
+
     public function __construct(
         public CarbonImmutable $from,
         public CarbonImmutable $until,
         public ?int $planId = null,
         public ?string $status = null,
+        public ?int $userId = null,
     ) {}
 
     /**
@@ -153,7 +156,7 @@ abstract class Report
     }
 
     /**
-     * The six reports, keyed by their identifier, in the order of the screen.
+     * The reports, keyed by their identifier, in the order of the screen.
      *
      * @return array<string, class-string<Report>>
      */
@@ -161,7 +164,7 @@ abstract class Report
     {
         $catalog = [];
 
-        foreach ([CustomersReport::class, InvoicesReport::class, DelinquencyReport::class, PaymentsReport::class, EntriesReport::class, CashFlowReportExport::class] as $report) {
+        foreach ([CustomersReport::class, CompaniesReport::class, InvoicesReport::class, DelinquencyReport::class, PaymentsReport::class, EntriesReport::class, CashFlowReportExport::class, SalesByUserReport::class] as $report) {
             $catalog[$report::key()] = $report;
         }
 

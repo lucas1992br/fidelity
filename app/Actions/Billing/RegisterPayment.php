@@ -33,6 +33,9 @@ use Illuminate\Validation\ValidationException;
  * Invoices of a company's consolidated bill are paid only through
  * {@see RegisterCompanyPayment}.
  *
+ * A card payment may record the payer's card (first 6 and last 4 digits
+ * only), remembered on the holder for the card reconciliation.
+ *
  * The covered invoice rows are locked, so two payments of the same month
  * result in a single payment. Amounts are compared as decimals, never floats.
  */
@@ -41,13 +44,14 @@ class RegisterPayment
     public function __construct(
         protected PaymentWillReactivateCard $paymentWillReactivateCard,
         protected ReactivateCard $reactivateCard,
+        protected RememberPaymentCard $rememberPaymentCard,
         protected IssueInvoice $issueInvoice,
         protected PaymentPeriodAmount $paymentPeriodAmount,
         protected BookPaymentIncome $bookPaymentIncome,
     ) {}
 
     /**
-     * @param  array{paid_at?: mixed, amount?: mixed, payment_method?: mixed, months?: mixed, installments?: mixed, notes?: mixed}  $input  Date as Y-m-d, amount as "89.90", method slug, months and installments 1-12 (default 1).
+     * @param  array{paid_at?: mixed, amount?: mixed, payment_method?: mixed, months?: mixed, installments?: mixed, card_digits?: mixed, card_brand?: mixed, notes?: mixed}  $input  Date as Y-m-d, amount as "89.90", method slug, months and installments 1-12 (default 1); card payments may carry the payer's card as first 6 + last 4 digits ("498407-9593") and its brand.
      *
      * @throws ValidationException
      */
@@ -59,6 +63,8 @@ class RegisterPayment
             'payment_method' => ['required', Rule::exists('payment_methods', 'slug')->where('is_active', true)],
             'months' => ['required', 'integer', 'between:1,'.Payment::MaxMonths],
             'installments' => ['required', 'integer', 'between:1,'.Payment::MaxInstallments],
+            'card_digits' => ['nullable', 'string', 'max:25'],
+            'card_brand' => ['nullable', 'string', 'max:50'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ], [], [
             'paid_at' => 'data do pagamento',
@@ -66,6 +72,8 @@ class RegisterPayment
             'payment_method' => 'forma de pagamento',
             'months' => 'meses',
             'installments' => 'parcelas',
+            'card_digits' => 'cartão do pagador',
+            'card_brand' => 'bandeira',
             'notes' => 'observação',
         ])->validate();
 
@@ -77,7 +85,9 @@ class RegisterPayment
             throw ValidationException::withMessages(['installments' => 'Só é possível parcelar no cartão ou no boleto.']);
         }
 
-        return DB::transaction(function () use ($invoice, $validated, $method, $months, $installments, $user): Payment {
+        $cardDigits = RememberPaymentCard::typedDigits($validated['card_digits'] ?? null, $method);
+
+        return DB::transaction(function () use ($invoice, $validated, $method, $months, $installments, $cardDigits, $user): Payment {
             $invoice = Invoice::query()->with('customer')->lockForUpdate()->findOrFail($invoice->id);
             $this->ensurePayable($invoice, 'Esta mensalidade');
 
@@ -97,6 +107,8 @@ class RegisterPayment
                 'months' => $months,
                 'payment_method_id' => $method->id(),
                 'installments' => $installments,
+                'card_bin' => $cardDigits[0] ?? null,
+                'card_last4' => $cardDigits[1] ?? null,
                 'notes' => filled($validated['notes'] ?? null) ? trim($validated['notes']) : null,
                 'user_id' => $user->id,
             ])->refresh();
@@ -120,6 +132,10 @@ class RegisterPayment
 
             if ($this->paymentWillReactivateCard->handle($invoice)) {
                 $this->reactivateCard->handle($invoice->customer->currentCard()->firstOrFail(), ReactivateCard::PaymentReason);
+            }
+
+            if ($cardDigits !== null) {
+                $this->rememberPaymentCard->handle($invoice->customer, ...$cardDigits, brand: $validated['card_brand'] ?? null);
             }
 
             return $payment;

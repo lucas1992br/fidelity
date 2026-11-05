@@ -2,6 +2,8 @@
 
 namespace Database\Factories;
 
+use App\Actions\Cards\ReenrollCustomer;
+use App\Actions\Customers\CreateCustomer;
 use App\Models\Customer;
 use App\Models\Plan;
 use App\Models\PlanChange;
@@ -40,6 +42,26 @@ class PlanChangeFactory extends Factory
             'from_plan_id' => $plan->id,
             'from_price' => $plan->price,
             'reason' => fake('pt_BR')->sentence(),
+        ]);
+    }
+
+    /**
+     * Sale made by the user, as CreateCustomer records it.
+     */
+    public function sale(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'reason' => CreateCustomer::Reason,
+        ]);
+    }
+
+    /**
+     * Re-enrollment made by the user, as ReenrollCustomer records it.
+     */
+    public function reenrollment(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'reason' => ReenrollCustomer::Reason,
         ]);
     }
 }

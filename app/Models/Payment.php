@@ -28,6 +28,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property int $months
  * @property int $payment_method_id
  * @property int $installments
+ * @property string|null $card_bin First 6 digits of the payer's credit card (never the full number).
+ * @property string|null $card_last4 Last 4 digits of the payer's credit card.
  * @property string|null $notes
  * @property int $user_id
  * @property Carbon|null $refunded_at
@@ -64,6 +66,8 @@ class Payment extends Model
         'months',
         'payment_method_id',
         'installments',
+        'card_bin',
+        'card_last4',
         'notes',
         'user_id',
         'refunded_at',

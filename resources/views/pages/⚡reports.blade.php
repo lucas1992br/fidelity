@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Plan;
+use App\Models\User;
 use App\Reports\Report;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Filesystem\Filesystem;
@@ -14,7 +15,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Reports (US-11.2): pick one of the six reports, the period and its own
+ * Reports (US-11.2): pick one of the reports, the period and its own
  * filters, then download it as PDF or Excel. Spreadsheets above the row
  * limit are queued into the exports disk and listed as "Processando…" until
  * the light polling finds the file. Requires `reports.view` on mount and on
@@ -27,11 +28,13 @@ new class extends Component
     /** @var array<string, string> */
     protected const array Icons = [
         'clientes' => 'users',
+        'empresas' => 'building-2',
         'mensalidades' => 'receipt',
         'inadimplencia' => 'trending-down',
         'pagamentos' => 'credit-card',
         'lancamentos' => 'tags',
         'fluxo-de-caixa' => 'chart-column',
+        'vendas-por-atendente' => 'user-plus',
     ];
 
     #[Url]
@@ -46,6 +49,8 @@ new class extends Component
     public string $plan = '';
 
     public string $status = '';
+
+    public string $user = '';
 
     /** @var list<QueuedExport> */
     #[Locked]
@@ -67,7 +72,7 @@ new class extends Component
     {
         if (array_key_exists($key, Report::catalog())) {
             $this->report = $key;
-            $this->reset('status');
+            $this->reset('status', 'user');
             $this->resetValidation();
         }
     }
@@ -138,13 +143,15 @@ new class extends Component
             'until' => ['required', 'date_format:Y-m-d', 'after_or_equal:from'],
             'plan' => ['nullable', Rule::exists(Plan::class, 'id')],
             'status' => ['nullable', Rule::in(array_keys($class::statusOptions()))],
-        ], attributes: ['from' => 'início', 'until' => 'fim', 'plan' => 'plano', 'status' => 'status']);
+            'user' => ['nullable', Rule::exists(User::class, 'id')],
+        ], attributes: ['from' => 'início', 'until' => 'fim', 'plan' => 'plano', 'status' => 'status', 'user' => 'atendente']);
 
         return new $class(
             CarbonImmutable::parse($this->from),
             CarbonImmutable::parse($this->until),
             in_array(Report::FilterPlan, $filters, true) && $this->plan !== '' ? (int) $this->plan : null,
             in_array(Report::FilterStatus, $filters, true) && $this->status !== '' ? $this->status : null,
+            in_array(Report::FilterUser, $filters, true) && $this->user !== '' ? (int) $this->user : null,
         );
     }
 
@@ -164,6 +171,7 @@ new class extends Component
             'filters' => $selected::filters(),
             'planOptions' => Plan::query()->orderBy('name')->pluck('name', 'id')->all(),
             'statusOptions' => $selected::statusOptions(),
+            'userOptions' => in_array(Report::FilterUser, $selected::filters(), true) ? User::query()->orderBy('name')->pluck('name', 'id')->all() : [],
             'isProcessing' => collect($this->queuedExports)->contains('ready', false),
         ]);
     }
@@ -221,6 +229,12 @@ new class extends Component
             @if (in_array(\App\Reports\Report::FilterStatus, $filters, true))
                 <x-ui.field label="Status" for="report-status" error="status" class="w-52">
                     <x-ui.select id="report-status" wire:model="status" :options="$statusOptions" placeholder="Todos" error="status" />
+                </x-ui.field>
+            @endif
+
+            @if (in_array(\App\Reports\Report::FilterUser, $filters, true))
+                <x-ui.field label="Atendente" for="report-user" error="user" class="w-52">
+                    <x-ui.select id="report-user" wire:model="user" :options="$userOptions" placeholder="Todos" error="user" />
                 </x-ui.field>
             @endif
 

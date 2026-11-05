@@ -110,10 +110,10 @@ test('the atendente gets 403 on every download method', function (string $method
     'polling' => ['checkQueuedExports', []],
 ]);
 
-test('the reports route renders the page with the six reports', function () {
+test('the reports route renders the page with every report', function () {
     actingAsRole('financeiro');
 
     $this->withoutVite()->get(route('reports.index'))
         ->assertOk()
-        ->assertSee(['Clientes e dependentes', 'Mensalidades', 'Inadimplência', 'Pagamentos recebidos', 'Lançamentos por categoria', 'Fluxo de caixa']);
+        ->assertSee(['Clientes e dependentes', 'Mensalidades', 'Inadimplência', 'Pagamentos recebidos', 'Lançamentos por categoria', 'Fluxo de caixa', 'Empresas e funcionários', 'Vendas por atendente']);
 });

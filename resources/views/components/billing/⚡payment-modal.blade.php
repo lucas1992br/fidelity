@@ -23,7 +23,9 @@ use Livewire\Component;
  * `payment-registered` so the screens reload. The payment may cover up to 12
  * months from the invoice's month (the amount follows the period) and card or
  * boleto payments may be split into up to 12 installments, one per covered
- * month by default. Requires `billing.pay`.
+ * month by default. A card payment may record the payer's card (first 6 +
+ * last 4 digits), prefilled with the holder's last card, for the card
+ * reconciliation. Requires `billing.pay`.
  */
 new class extends Component
 {
@@ -38,6 +40,11 @@ new class extends Component
     public int $months = 1;
 
     public int $installments = 1;
+
+    /**
+     * Payer's card as first 6 + last 4 digits ("498407-9593"), card payments only.
+     */
+    public string $cardDigits = '';
 
     public string $notes = '';
 
@@ -64,6 +71,8 @@ new class extends Component
         $this->resetValidation();
         $this->reset('notes', 'months', 'installments');
         $this->invoiceId = $found->id;
+        $lastCard = $found->customer->paymentCards()->latest('updated_at')->latest('id')->first();
+        $this->cardDigits = $lastCard ? "{$lastCard->card_bin}-{$lastCard->card_last4}" : '';
         $this->paidAt = today()->format('d/m/Y');
         $this->amount = number_format((float) $found->amount, 2, ',', '.');
         $this->method = $this->methods->first()?->slug->value ?? '';
@@ -99,7 +108,7 @@ new class extends Component
 
     public function close(): void
     {
-        $this->reset('invoiceId', 'notes', 'months', 'installments');
+        $this->reset('invoiceId', 'notes', 'months', 'installments', 'cardDigits');
         $this->resetValidation();
     }
 
@@ -214,10 +223,11 @@ new class extends Component
                 'payment_method' => $this->method,
                 'months' => $this->months,
                 'installments' => $this->installments,
+                'card_digits' => $this->method === PaymentMethodEnum::Card->value ? $this->cardDigits : null,
                 'notes' => $this->notes,
             ], auth()->user());
         } catch (ValidationException $exception) {
-            $fields = ['paid_at' => 'paidAt', 'payment_method' => 'method'];
+            $fields = ['paid_at' => 'paidAt', 'payment_method' => 'method', 'card_digits' => 'cardDigits'];
 
             throw ValidationException::withMessages(collect($exception->errors())
                 ->mapWithKeys(fn (array $messages, string $key): array => [$fields[$key] ?? $key => $messages])
@@ -282,6 +292,12 @@ new class extends Component
             @if ($this->allowsInstallments)
                 <x-ui.field label="Parcelas" for="payment-installments" error="installments">
                     <x-ui.select id="payment-installments" wire:model.number="installments" error="installments" :options="$this->installmentOptions" />
+                </x-ui.field>
+            @endif
+
+            @if ($method === 'card')
+                <x-ui.field label="Cartão do pagador" for="payment-card-digits" error="cardDigits" hint="6 primeiros e 4 últimos dígitos, para conciliar com o extrato da Granito. Nunca o número completo.">
+                    <x-ui.input id="payment-card-digits" wire:model="cardDigits" error="cardDigits" mask="card-digits" autocomplete="off" />
                 </x-ui.field>
             @endif
 

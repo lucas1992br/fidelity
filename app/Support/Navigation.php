@@ -39,6 +39,7 @@ class Navigation
                 ['route' => 'finance.receivables', 'label' => 'Contas a receber', 'icon' => 'arrow-down-left', 'permission' => 'finance.view'],
                 ['route' => 'finance.cash-flow', 'label' => 'Fluxo de caixa', 'icon' => 'chart-column', 'permission' => 'finance.view'],
                 ['route' => 'finance.categories', 'label' => 'Categorias', 'icon' => 'tags', 'permission' => 'finance.view'],
+                ['route' => 'finance.card-reconciliation', 'label' => 'Conciliação de cartão', 'icon' => 'credit-card', 'permission' => 'billing.pay'],
             ]],
             ['title' => 'Sistema', 'items' => [
                 ['route' => 'reports.index', 'label' => 'Relatórios', 'icon' => 'file-text', 'permission' => 'reports.view'],

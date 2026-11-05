@@ -273,3 +273,24 @@ test('an invoice of a company bill is paid only through the company', function (
         ->toBe('Esta mensalidade faz parte da fatura da empresa; registre o pagamento na página da empresa.')
         ->and(Payment::count())->toBe(0);
 });
+
+test('a card payment records the payer card digits and remembers them on the holder', function () {
+    $customer = Customer::factory()->withCard()->create();
+    $invoice = Invoice::factory()->for($customer)->forMonth('2026-10')->create();
+
+    $payment = registerPayment($invoice, ['payment_method' => PaymentMethod::Card->value, 'card_digits' => '498407-9593']);
+
+    expect($payment->card_bin)->toBe('498407')
+        ->and($payment->card_last4)->toBe('9593')
+        ->and($customer->paymentCards()->sole()->masked_number)->toBe('498407******9593');
+});
+
+test('card digits are rejected when incomplete or not paying by card', function (array $overrides, string $message) {
+    $invoice = Invoice::factory()->for(Customer::factory()->withCard())->forMonth('2026-10')->create();
+
+    expect(paymentError(fn () => registerPayment($invoice, $overrides), 'card_digits'))->toBe($message)
+        ->and(Payment::count())->toBe(0);
+})->with([
+    'incomplete' => [['payment_method' => PaymentMethod::Card->value, 'card_digits' => '498407-95'], 'Informe os 6 primeiros e os 4 últimos dígitos do cartão.'],
+    'not a card payment' => [['payment_method' => PaymentMethod::Pix->value, 'card_digits' => '498407-9593'], 'Os dígitos do cartão só valem para pagamento com cartão.'],
+]);

@@ -42,6 +42,7 @@ Route::middleware('auth')->group(function () {
         Route::livewire('/contas-a-receber', 'pages::finance.receivables')->name('receivables');
         Route::livewire('/fluxo-de-caixa', 'pages::finance.cash-flow')->name('cash-flow');
         Route::livewire('/categorias', 'pages::finance.categories')->name('categories');
+        Route::livewire('/conciliacao-cartao', 'pages::finance.card-reconciliation')->middleware('can:billing.pay')->name('card-reconciliation');
     });
 
     Route::livewire('/relatorios', 'pages::reports')->middleware('can:reports.view')->name('reports.index');

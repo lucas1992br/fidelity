@@ -220,6 +220,16 @@ class Customer extends Model
     }
 
     /**
+     * Credit cards the holder paid with (first 6 and last 4 digits only).
+     *
+     * @return HasMany<PaymentCard, $this>
+     */
+    public function paymentCards(): HasMany
+    {
+        return $this->hasMany(PaymentCard::class);
+    }
+
+    /**
      * Notes, most recent first.
      *
      * @return HasMany<CustomerNote, $this>
