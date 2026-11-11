@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Actions\Cards\ReenrollCustomer;
+use App\Actions\Customers\CreateCustomer;
 use App\Enums\CardStatus;
 use App\Enums\EntryStatus;
 use App\Enums\EntryType;
@@ -13,6 +15,7 @@ use App\Models\Dependent;
 use App\Models\FinancialEntry;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\PlanChange;
 use App\Queries\DelinquentsQuery;
 use App\Settings\ClinicSettings;
 use App\Support\Billing\DelinquentRow;
@@ -25,8 +28,14 @@ use Illuminate\Support\Collection;
  * returned as decimal strings; the delinquency rate is a percentage with one
  * decimal place. Soft-deleted holders, dependents and entries never count.
  *
+ * Month indicators take the month to show (the current month when none is
+ * given); cards, lives, delinquency and open amounts are always the current
+ * position, since their past states are not kept.
+ *
  * @phpstan-type CardsSummary array{active: int, in_stock: int, min_stock: int, low_stock: bool}
  * @phpstan-type MonthTotals array{income: string, expense: string}
+ * @phpstan-type MonthSales array{sales: int, reenrollments: int}
+ * @phpstan-type MonthBilling array{billed: string, received: string}
  * @phpstan-type Delinquency array{delinquent: int, holders: int, rate: float}
  * @phpstan-type SeriesRow array{key: string, label: string, income: string, expense: string}
  */
@@ -78,15 +87,17 @@ class DashboardMetrics
     }
 
     /**
-     * Paid income and expense with `paid_at` in the current month (cash basis).
+     * Paid income and expense with `paid_at` in the month (cash basis).
      *
      * @return MonthTotals
      */
-    public function monthTotals(): array
+    public function monthTotals(?CarbonImmutable $month = null): array
     {
+        $month = self::monthOrCurrent($month);
+
         $row = FinancialEntry::query()
             ->where('entry_status_id', EntryStatus::Paid->id())
-            ->whereBetween('paid_at', [today()->startOfMonth()->toDateString(), today()->endOfMonth()->toDateString()])
+            ->whereBetween('paid_at', [$month->startOfMonth()->toDateString(), $month->endOfMonth()->toDateString()])
             ->toBase()
             ->selectRaw(
                 'coalesce(sum(amount) filter (where entry_type_id = ?), 0)::numeric(14, 2) as income,
@@ -96,6 +107,60 @@ class DashboardMetrics
             ->first();
 
         return ['income' => (string) $row->income, 'expense' => (string) $row->expense];
+    }
+
+    /**
+     * Sign-ups and re-enrollments made in the month.
+     *
+     * @return MonthSales
+     */
+    public function monthSales(?CarbonImmutable $month = null): array
+    {
+        $month = self::monthOrCurrent($month);
+
+        $row = PlanChange::query()
+            ->whereBetween('created_at', [$month->startOfMonth(), $month->endOfMonth()])
+            ->toBase()
+            ->selectRaw(
+                'count(*) filter (where reason = ?) as sales, count(*) filter (where reason = ?) as reenrollments',
+                [CreateCustomer::Reason, ReenrollCustomer::Reason],
+            )
+            ->first();
+
+        return ['sales' => (int) $row->sales, 'reenrollments' => (int) $row->reenrollments];
+    }
+
+    /**
+     * Amount billed for the reference month (holder invoices plus the fixed
+     * amount of the company bills, cancelled ones left out) and how much of it
+     * is already paid.
+     *
+     * @return MonthBilling
+     */
+    public function monthBilling(?CarbonImmutable $month = null): array
+    {
+        $month = self::monthOrCurrent($month);
+        $sum = fn (InvoiceStatus ...$statuses): string => (string) Invoice::query()
+            ->forMonth($month)
+            ->whereIn('invoice_status_id', array_map(fn (InvoiceStatus $status): int => $status->id(), $statuses))
+            ->toBase()
+            ->selectRaw('coalesce(sum(amount), 0)::numeric(14, 2) as amount')
+            ->value('amount');
+        $bills = fn (Builder $query): string => (string) $query
+            ->whereDate('reference_month', $month->startOfMonth()->toDateString())
+            ->toBase()
+            ->selectRaw('coalesce(sum(amount), 0)::numeric(14, 2) as amount')
+            ->value('amount');
+
+        $billedBills = $bills(CompanyBill::query()->withInvoiceStatus(InvoiceStatus::Open, InvoiceStatus::Overdue, InvoiceStatus::Paid));
+        $paidBills = $bills(CompanyBill::query()
+            ->withInvoiceStatus(InvoiceStatus::Paid)
+            ->whereNot(fn (Builder $query) => $query->withInvoiceStatus(InvoiceStatus::Open, InvoiceStatus::Overdue)));
+
+        return [
+            'billed' => bcadd($sum(InvoiceStatus::Open, InvoiceStatus::Overdue, InvoiceStatus::Paid), $billedBills, 2),
+            'received' => bcadd($sum(InvoiceStatus::Paid), $paidBills, 2),
+        ];
     }
 
     /**
@@ -137,13 +202,14 @@ class DashboardMetrics
     }
 
     /**
-     * Paid income and expense per month, from 11 months ago to the current month.
+     * Paid income and expense per month, from 11 months before the given
+     * month (the current one when none is given) to that month.
      *
      * @return list<SeriesRow>
      */
-    public function monthlySeries(int $months = 12): array
+    public function monthlySeries(int $months = 12, ?CarbonImmutable $until = null): array
     {
-        $end = CarbonImmutable::today()->endOfMonth();
+        $end = self::monthOrCurrent($until)->endOfMonth();
         $start = $end->startOfMonth()->subMonthsNoOverflow($months - 1);
 
         return array_map(fn (array $row): array => [
@@ -155,15 +221,17 @@ class DashboardMetrics
     }
 
     /**
-     * The most recent payments that were not refunded.
+     * The most recent payments that were not refunded, made in the given
+     * month when one is given.
      *
      * @return Collection<int, Payment>
      */
-    public function latestPayments(int $limit = 5): Collection
+    public function latestPayments(int $limit = 5, ?CarbonImmutable $month = null): Collection
     {
         return Payment::query()
             ->whereNull('refunded_at')
-            ->with(['invoice:id,customer_id,reference_month', 'invoice.customer:id,name'])
+            ->when($month, fn (Builder $query, CarbonImmutable $month) => $query->whereBetween('paid_at', [$month->startOfMonth()->toDateString(), $month->endOfMonth()->toDateString()]))
+            ->with(['invoice:id,customer_id,reference_month', 'invoice.customer:id,name', 'company:id,name,trade_name'])
             ->orderByDesc('paid_at')
             ->orderByDesc('receipt_number')
             ->limit($limit)
@@ -193,5 +261,10 @@ class DashboardMetrics
             ->value('amount');
 
         return bcadd($invoices, CompanyBill::amountWithInvoiceStatus(...$statuses), 2);
+    }
+
+    protected static function monthOrCurrent(?CarbonImmutable $month): CarbonImmutable
+    {
+        return ($month ?? CarbonImmutable::today())->startOfMonth();
     }
 }
