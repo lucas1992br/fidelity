@@ -223,7 +223,7 @@ test('financial category and entry relationships and scopes', function () {
         ->and(EntryType::find(EntryTypeEnum::Expense->id())->categories->pluck('id'))->toContain($category->id, $inactive->id)
         ->and(EntryStatus::find(EntryStatusEnum::Paid->id())->entries->pluck('id')->all())->toBe([$entry->id])
         ->and(FinancialCategory::active()->pluck('id'))->toContain($category->id)->not->toContain($inactive->id)
-        ->and(FinancialCategory::ofType(EntryTypeEnum::Income)->pluck('name')->all())->toBe(['Mensalidades', 'Outras receitas']);
+        ->and(FinancialCategory::ofType(EntryTypeEnum::Income)->pluck('name')->all())->toBe(['Mensalidades', 'Taxas de adesão', 'Outras receitas']);
 });
 
 test('soft deleted financial entries leave the default queries', function () {
