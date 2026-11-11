@@ -122,7 +122,7 @@ new class extends Component
             <x-ui.field label="Dia de vencimento padrão" for="default-due-day" error="default_due_day" hint="De 1 a 28. Sugerido nas novas adesões.">
                 <x-ui.input id="default-due-day" type="number" min="1" max="28" wire:model="default_due_day" error="default_due_day" />
             </x-ui.field>
-            <x-ui.field label="Dias para suspensão" for="suspend-after-days" error="suspend_after_days" hint="Dias de atraso até o cartão ser suspenso.">
+            <x-ui.field label="Dias para suspensão" for="suspend-after-days" error="suspend_after_days" hint="Dias de atraso até o cartão ser suspenso. 1 = suspende no dia seguinte ao vencimento.">
                 <x-ui.input id="suspend-after-days" type="number" min="1" wire:model="suspend_after_days" error="suspend_after_days" />
             </x-ui.field>
             <x-ui.field label="Dia de geração das faturas" for="invoice-generation-day" error="invoice_generation_day" hint="De 1 a 28. As mensalidades do mês seguinte são geradas neste dia.">

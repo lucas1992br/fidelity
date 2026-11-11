@@ -9,7 +9,7 @@ test('the settings page loads the current values', function () {
     Livewire::test('pages::settings')
         ->assertSet('clinic_name', 'Policlínica')
         ->assertSet('default_due_day', 10)
-        ->assertSet('suspend_after_days', 30);
+        ->assertSet('suspend_after_days', 1);
 });
 
 test('a due day of 29 is rejected', function (string $field) {
@@ -87,7 +87,7 @@ test('financeiro gets 403 on mount and on save', function () {
     actingAsRole('financeiro');
     $component->call('save')->assertForbidden();
 
-    expect(app(ClinicSettings::class)->refresh()->suspend_after_days)->toBe(30);
+    expect(app(ClinicSettings::class)->refresh()->suspend_after_days)->toBe(1);
 });
 
 test('the enrollment commission percentage is saved', function () {

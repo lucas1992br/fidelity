@@ -84,3 +84,18 @@ test('the activity log records how many cards were suspended', function () {
         ->and($activity->properties['count'])->toBe(2)
         ->and($activity->causer)->toBeNull();
 });
+
+test('with a one-day limit the nightly routines suspend the card the day after the due date', function () {
+    settings(['suspend_after_days' => 1]);
+    $dueYesterday = Card::factory()->active()->create();
+    Invoice::factory()->create(['customer_id' => $dueYesterday->customer_id, 'due_date' => '2026-10-14']);
+    $dueToday = Card::factory()->active()->create();
+    Invoice::factory()->create(['customer_id' => $dueToday->customer_id, 'due_date' => '2026-10-15']);
+
+    $this->artisan('invoices:mark-overdue')->assertSuccessful();
+    $this->artisan('cards:suspend-delinquent')->assertSuccessful();
+
+    expect($dueYesterday->refresh()->hasStatus(CardStatus::Suspended))->toBeTrue()
+        ->and($dueYesterday->statusLogs()->sole()->reason)->toBe('Suspensão automática: 1 dia em atraso')
+        ->and($dueToday->refresh()->hasStatus(CardStatus::Active))->toBeTrue();
+});
