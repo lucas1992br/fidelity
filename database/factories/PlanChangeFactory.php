@@ -56,6 +56,17 @@ class PlanChangeFactory extends Factory
     }
 
     /**
+     * Sign-up that charged the given enrollment fee, with the commission percentage of the sale.
+     */
+    public function withEnrollmentFee(string $fee, string $commissionPercent): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'enrollment_fee' => $fee,
+            'commission_percent' => $commissionPercent,
+        ]);
+    }
+
+    /**
      * Re-enrollment made by the user, as ReenrollCustomer records it.
      */
     public function reenrollment(): static

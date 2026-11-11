@@ -9,7 +9,7 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 /**
- * Plan catalog (US-3.1): cards with suggested price, dependents limit and active
+ * Plan catalog (US-3.1): cards with suggested price, enrollment fee, dependents limit and active
  * customers, plus a create/edit modal. Every entry point requires `plans.manage`.
  */
 new class extends Component
@@ -23,6 +23,8 @@ new class extends Component
     public string $description = '';
 
     public string $price = '';
+
+    public string $enrollment_fee = '';
 
     public int|string $max_dependents = 0;
 
@@ -52,6 +54,7 @@ new class extends Component
         $this->name = $plan->name;
         $this->description = (string) $plan->description;
         $this->price = str_replace('.', ',', $plan->price);
+        $this->enrollment_fee = str_replace('.', ',', $plan->enrollment_fee);
         $this->max_dependents = $plan->max_dependents;
         $this->is_active = $plan->is_active;
         $this->isModalOpen = true;
@@ -62,7 +65,7 @@ new class extends Component
         $this->authorize('plans.manage');
 
         $plan = $savePlan->handle(
-            $this->only('name', 'description', 'price', 'max_dependents', 'is_active'),
+            $this->only('name', 'description', 'price', 'enrollment_fee', 'max_dependents', 'is_active'),
             $this->planId ? Plan::findOrFail($this->planId) : null,
         );
 
@@ -96,7 +99,7 @@ new class extends Component
 
     protected function resetForm(): void
     {
-        $this->reset('planId', 'name', 'description', 'price', 'max_dependents', 'is_active');
+        $this->reset('planId', 'name', 'description', 'price', 'enrollment_fee', 'max_dependents', 'is_active');
         $this->resetValidation();
     }
 
@@ -134,6 +137,7 @@ new class extends Component
                         <span class="text-sm text-ink-500">/mês sugerido</span>
                     </div>
                     <div class="flex flex-col gap-1.5 border-t border-ink-100 pt-3.5 text-sm">
+                        <span>{{ (float) $plan->enrollment_fee > 0 ? 'Taxa de adesão de '.\App\Support\Format::money($plan->enrollment_fee) : 'Sem taxa de adesão' }}</span>
                         <span>{{ $plan->max_dependents > 0 ? "Até {$plan->max_dependents} dependentes" : 'Não inclui dependentes' }}</span>
                         <span class="text-ink-500">{{ $plan->active_customers_count }} {{ $plan->active_customers_count === 1 ? 'titular ativo' : 'titulares ativos' }}</span>
                     </div>
@@ -156,6 +160,10 @@ new class extends Component
             <div class="grid grid-cols-2 gap-4">
                 <x-ui.field label="Preço sugerido (R$)" for="plan-price" error="price">
                     <x-ui.input id="plan-price" wire:model="price" error="price" mask="money" placeholder="0,00" />
+                </x-ui.field>
+
+                <x-ui.field label="Taxa de adesão (R$)" for="plan-enrollment-fee" error="enrollment_fee" hint="Cobrada uma vez na venda. Base da comissão do atendente.">
+                    <x-ui.input id="plan-enrollment-fee" wire:model="enrollment_fee" error="enrollment_fee" mask="money" placeholder="0,00" />
                 </x-ui.field>
 
                 <x-ui.field label="Limite de dependentes" for="plan-max-dependents" error="max_dependents" hint="0 = não inclui dependentes.">

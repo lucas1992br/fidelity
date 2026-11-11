@@ -15,10 +15,11 @@ use Illuminate\Support\Collection;
  * Sales per user for commission analysis: every sign-up (Adesão) and
  * re-enrollment (Reingresso) in the period, by the user who made it, with the
  * holder, plan, company, the monthly amount sold and whether the first invoice
- * issued with the sale is already paid (a usual condition for commission).
- * Optionally filtered by one user.
+ * issued with the sale is already paid. The commission is the percentage set
+ * at the sale applied to its enrollment fee, and is only due once that first
+ * invoice is paid. Optionally filtered by one user.
  *
- * @phpstan-type UserTotals array{user: string, sales: int, reenrollments: int, monthly: string, paid_sales: int, paid_monthly: string}
+ * @phpstan-type UserTotals array{user: string, sales: int, reenrollments: int, monthly: string, paid_sales: int, paid_monthly: string, enrollment_fees: string, commission: string}
  */
 class SalesByUserReport extends Report
 {
@@ -34,7 +35,7 @@ class SalesByUserReport extends Report
 
     public static function description(): string
     {
-        return 'Adesões e reingressos por atendente, com valor vendido, para comissões.';
+        return 'Adesões e reingressos por atendente, com valor vendido, taxa de adesão e comissão.';
     }
 
     public static function filters(): array
@@ -81,6 +82,28 @@ class SalesByUserReport extends Report
     }
 
     /**
+     * Commission on the sale's enrollment fee, rounded to cents; zero when no fee was charged.
+     */
+    public static function commissionOf(PlanChange $sale): string
+    {
+        if ($sale->enrollment_fee === null || $sale->commission_percent === null) {
+            return '0.00';
+        }
+
+        $commission = bcdiv(bcmul($sale->enrollment_fee, $sale->commission_percent, 4), '100', 6);
+
+        return bcadd($commission, '0.005', 2);
+    }
+
+    /**
+     * Commission owed to the seller: only once the first invoice of the sale is paid.
+     */
+    public static function commissionDueOf(PlanChange $sale): string
+    {
+        return self::isFirstInvoicePaid($sale) ? self::commissionOf($sale) : '0.00';
+    }
+
+    /**
      * "Adesão" or "Reingresso".
      */
     public static function typeOf(PlanChange $sale): string
@@ -89,18 +112,20 @@ class SalesByUserReport extends Report
     }
 
     /**
-     * Sales, re-enrollments and monthly amounts per user, from the rows of the query.
+     * Sales, re-enrollments, monthly amounts, enrollment fees and the commission
+     * due per user, from the rows of the query.
      *
      * @param  Collection<int, PlanChange>  $sales
      * @return list<UserTotals>
      */
     public function totalsByUser(Collection $sales): array
     {
-        $sum = fn (Collection $rows): string => $rows->reduce(fn (string $total, PlanChange $sale): string => bcadd($total, $sale->to_price, 2), '0.00');
+        $sumOf = fn (Collection $rows, callable $amount): string => $rows->reduce(fn (string $total, PlanChange $sale): string => bcadd($total, $amount($sale), 2), '0.00');
+        $sum = fn (Collection $rows): string => $sumOf($rows, fn (PlanChange $sale): string => $sale->to_price);
 
         return array_values($sales
             ->groupBy('user_id')
-            ->map(function (Collection $rows) use ($sum): array {
+            ->map(function (Collection $rows) use ($sum, $sumOf): array {
                 $paid = $rows->filter(fn (PlanChange $sale): bool => self::isFirstInvoicePaid($sale));
 
                 return [
@@ -110,6 +135,8 @@ class SalesByUserReport extends Report
                     'monthly' => $sum($rows),
                     'paid_sales' => $paid->count(),
                     'paid_monthly' => $sum($paid),
+                    'enrollment_fees' => $sumOf($rows, fn (PlanChange $sale): string => $sale->enrollment_fee ?? '0.00'),
+                    'commission' => $sumOf($paid, self::commissionOf(...)),
                 ];
             })
             ->all());

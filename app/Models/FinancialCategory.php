@@ -32,6 +32,11 @@ class FinancialCategory extends Model
     public const string MONTHLY_FEES = 'Mensalidades';
 
     /**
+     * Name of the system category that receives the enrollment fees of the sales.
+     */
+    public const string ENROLLMENT_FEES = 'Taxas de adesão';
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
@@ -61,9 +66,22 @@ class FinancialCategory extends Model
      */
     public static function monthlyFees(): self
     {
+        return self::systemIncome(self::MONTHLY_FEES);
+    }
+
+    /**
+     * The system income category used by the enrollment fee of each sale.
+     */
+    public static function enrollmentFees(): self
+    {
+        return self::systemIncome(self::ENROLLMENT_FEES);
+    }
+
+    protected static function systemIncome(string $name): self
+    {
         return self::query()
             ->where('is_system', true)
-            ->where('name', self::MONTHLY_FEES)
+            ->where('name', $name)
             ->where('entry_type_id', EntryTypeEnum::Income->id())
             ->sole();
     }

@@ -27,6 +27,8 @@ new class extends Component
 
     public ?string $card_number_pattern = null;
 
+    public float|string|null $enrollment_commission_percent = null;
+
     public function mount(ClinicSettings $settings): void
     {
         $this->authorize('settings.manage');
@@ -48,6 +50,7 @@ new class extends Component
             'suspend_after_days' => ['required', 'integer', 'min:1'],
             'invoice_generation_day' => ['required', 'integer', 'between:1,28'],
             'min_card_stock' => ['required', 'integer', 'min:0'],
+            'enrollment_commission_percent' => ['required', 'numeric', 'between:0,100', 'decimal:0,2'],
             'card_number_pattern' => ['nullable', 'string', 'max:255', function (string $attribute, mixed $value, Closure $fail): void {
                 if (@preg_match($value, '') === false) {
                     $fail('O padrão do número do cartão não é uma expressão regular válida.');
@@ -71,6 +74,7 @@ new class extends Component
             'invoice_generation_day' => 'dia de geração das faturas',
             'min_card_stock' => 'estoque mínimo de cartões',
             'card_number_pattern' => 'padrão do número do cartão',
+            'enrollment_commission_percent' => 'comissão sobre a taxa de adesão',
         ];
     }
 
@@ -80,10 +84,13 @@ new class extends Component
 
         $validated = $this->validate();
 
-        $settings->fill(array_map(
-            fn (mixed $value): mixed => is_string($value) && trim($value) === '' ? null : $value,
-            $validated,
-        ))->save();
+        $settings->fill([
+            ...array_map(
+                fn (mixed $value): mixed => is_string($value) && trim($value) === '' ? null : $value,
+                $validated,
+            ),
+            'enrollment_commission_percent' => (float) $validated['enrollment_commission_percent'],
+        ])->save();
 
         $this->dispatch('notify', title: 'Configurações salvas', description: 'Os novos valores já estão valendo.');
     }
@@ -126,6 +133,9 @@ new class extends Component
             </x-ui.field>
             <x-ui.field label="Padrão do número do cartão" for="card-number-pattern" error="card_number_pattern" hint="Opcional. Expressão regular, ex.: /^\d{6}$/">
                 <x-ui.input id="card-number-pattern" wire:model="card_number_pattern" error="card_number_pattern" class="font-mono" />
+            </x-ui.field>
+            <x-ui.field label="Comissão sobre a taxa de adesão (%)" for="enrollment-commission-percent" error="enrollment_commission_percent" hint="De 0 a 100. Devida ao atendente quando a 1ª mensalidade da venda é paga.">
+                <x-ui.input id="enrollment-commission-percent" type="number" min="0" max="100" step="0.01" wire:model="enrollment_commission_percent" error="enrollment_commission_percent" />
             </x-ui.field>
         </div>
     </x-ui.card>

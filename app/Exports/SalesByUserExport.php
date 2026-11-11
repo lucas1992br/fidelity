@@ -17,8 +17,8 @@ use PhpOffice\PhpSpreadsheet\Shared\Date;
 
 /**
  * Sales by user spreadsheet: one row per sign-up or re-enrollment, with the
- * seller, the monthly amount sold and the first invoice status, ready to be
- * summed for commissions. CPFs are masked (LGPD).
+ * seller, the monthly amount sold, the enrollment fee, the first invoice
+ * status and the commission due, ready to be summed. CPFs are masked (LGPD).
  *
  * @implements WithMapping<PlanChange>
  */
@@ -41,7 +41,7 @@ class SalesByUserExport implements FromQuery, WithColumnFormatting, WithHeadings
      */
     public function headings(): array
     {
-        return $this->reportHeadings($this->report, ['Data', 'Atendente', 'Tipo', 'Cliente', 'CPF', 'Cartão', 'Plano', 'Empresa', 'Valor mensal', '1ª mensalidade', 'Status do cartão']);
+        return $this->reportHeadings($this->report, ['Data', 'Atendente', 'Tipo', 'Cliente', 'CPF', 'Cartão', 'Plano', 'Empresa', 'Valor mensal', 'Taxa de adesão', '1ª mensalidade', 'Comissão', 'Status do cartão']);
     }
 
     /**
@@ -63,7 +63,9 @@ class SalesByUserExport implements FromQuery, WithColumnFormatting, WithHeadings
             $row->toPlan->name,
             $customer->company?->display_name,
             (float) $row->to_price,
+            (float) ($row->enrollment_fee ?? 0),
             $firstInvoice ? InvoiceStatus::fromId($firstInvoice->invoice_status_id)->label() : '—',
+            (float) SalesByUserReport::commissionDueOf($row),
             CustomersReport::cardStatusOf($customer)?->label() ?? 'Sem cartão',
         ];
     }
@@ -73,6 +75,6 @@ class SalesByUserExport implements FromQuery, WithColumnFormatting, WithHeadings
      */
     public function columnFormats(): array
     {
-        return ['A' => self::DateFormat, 'I' => self::MoneyFormat];
+        return ['A' => self::DateFormat, 'I' => self::MoneyFormat, 'J' => self::MoneyFormat, 'L' => self::MoneyFormat];
     }
 }

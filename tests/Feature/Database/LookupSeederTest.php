@@ -42,7 +42,7 @@ test('simple lookups follow the schema seeds', function () {
     $this->seed(LookupSeeder::class);
 
     expect(DB::table('payment_methods')->orderBy('id')->pluck('name', 'slug')->all())
-        ->toBe(['pix' => 'PIX', 'cash' => 'Dinheiro', 'card' => 'Cartão', 'boleto' => 'Boleto'])
+        ->toBe(['pix' => 'PIX', 'cash' => 'Dinheiro', 'card' => 'Cartão', 'boleto' => 'Boleto', 'recurring' => 'Cartão recorrente'])
         ->and(DB::table('kinships')->orderBy('id')->pluck('name', 'slug')->all())
         ->toBe(['spouse' => 'Cônjuge', 'child' => 'Filho(a)', 'father' => 'Pai', 'mother' => 'Mãe', 'sibling' => 'Irmão(ã)', 'other' => 'Outro'])
         ->and(DB::table('entry_types')->orderBy('id')->pluck('name', 'slug')->all())
@@ -67,7 +67,7 @@ test('running the seeder twice keeps counts and ids', function () {
         ->and($idsAfter->map(fn (array $ids): int => count($ids))->all())->toBe([
             'card_statuses' => 6,
             'invoice_statuses' => 4,
-            'payment_methods' => 4,
+            'payment_methods' => 5,
             'kinships' => 6,
             'entry_types' => 2,
             'entry_statuses' => 3,
