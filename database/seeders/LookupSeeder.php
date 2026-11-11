@@ -45,6 +45,7 @@ class LookupSeeder extends Seeder
                 ['slug' => 'cash', 'name' => 'Dinheiro'],
                 ['slug' => 'card', 'name' => 'Cartão'],
                 ['slug' => 'boleto', 'name' => 'Boleto'],
+                ['slug' => 'recurring', 'name' => 'Cartão recorrente'],
             ],
             'kinships' => [
                 ['slug' => 'spouse', 'name' => 'Cônjuge'],

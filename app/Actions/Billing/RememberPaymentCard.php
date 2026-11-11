@@ -32,7 +32,7 @@ class RememberPaymentCard
 
     /**
      * The first 6 and last 4 digits typed with a payment ("498407-9593"), or
-     * null when none were typed. Only card payments take them.
+     * null when none were typed. Only credit card payments (one-off or recurring) take them.
      *
      * @return array{string, string}|null
      *
@@ -44,7 +44,7 @@ class RememberPaymentCard
             return null;
         }
 
-        if ($method !== PaymentMethodEnum::Card) {
+        if (! $method->isCreditCard()) {
             throw ValidationException::withMessages(['card_digits' => 'Os dígitos do cartão só valem para pagamento com cartão.']);
         }
 

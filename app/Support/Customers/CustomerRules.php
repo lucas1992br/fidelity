@@ -50,6 +50,7 @@ class CustomerRules
             'state' => ['required', 'string', Rule::in(self::STATES)],
             'plan_id' => ['required', 'integer', Rule::exists('plans', 'id')->where('is_active', true)->whereNull('deleted_at')],
             'monthly_amount' => ['nullable', self::MONEY_REGEX],
+            'enrollment_fee' => ['nullable', self::MONEY_REGEX],
             'company_id' => ['nullable', 'integer', Rule::exists('companies', 'id')->where('is_active', true)->whereNull('deleted_at')],
             'due_day' => ['required', 'integer', 'between:1,28'],
         ];
@@ -57,14 +58,14 @@ class CustomerRules
 
     /**
      * Rules of the edit screen: the holder data and the due day, ignoring the
-     * record itself in the CPF uniqueness. Card, plan, monthly amount, company
-     * and dependents are not edited there.
+     * record itself in the CPF uniqueness. Card, plan, monthly amount,
+     * enrollment fee, company and dependents are not edited there.
      *
      * @return array<string, array<int, mixed>>
      */
     public static function updateRules(int $customerId): array
     {
-        return Arr::except(self::rules($customerId), ['plan_id', 'monthly_amount', 'company_id']);
+        return Arr::except(self::rules($customerId), ['plan_id', 'monthly_amount', 'enrollment_fee', 'company_id']);
     }
 
     /**
@@ -81,6 +82,7 @@ class CustomerRules
             'state.in' => 'Informe uma UF válida.',
             'plan_id.exists' => 'Selecione um plano ativo.',
             'monthly_amount.regex' => 'O valor mensal deve ser maior ou igual a zero, com até 2 casas decimais.',
+            'enrollment_fee.regex' => 'A taxa de adesão deve ser maior ou igual a zero, com até 2 casas decimais.',
             'company_id.exists' => 'Selecione uma empresa ativa.',
             'due_day.between' => 'O dia de vencimento deve ser entre 1 e 28.',
         ];
@@ -107,6 +109,7 @@ class CustomerRules
             'state' => 'UF',
             'plan_id' => 'plano',
             'monthly_amount' => 'valor mensal',
+            'enrollment_fee' => 'taxa de adesão',
             'company_id' => 'empresa',
             'due_day' => 'dia de vencimento',
         ];
@@ -114,7 +117,7 @@ class CustomerRules
 
     /**
      * Keep only digits in CPF, CEP and phones, trim the texts, upper-case the
-     * UF, convert the monthly amount ("1.234,56") to a decimal and turn empty
+     * UF, convert the monthly amount and the enrollment fee ("1.234,56") to decimals and turn empty
      * optional fields into null.
      *
      * @param  array<string, mixed>  $input
@@ -138,8 +141,10 @@ class CustomerRules
             $input['state'] = mb_strtoupper(trim($input['state']));
         }
 
-        if (array_key_exists('monthly_amount', $input)) {
-            $input['monthly_amount'] = is_scalar($input['monthly_amount']) ? SavePlan::normalizePrice($input['monthly_amount']) : null;
+        foreach (['monthly_amount', 'enrollment_fee'] as $field) {
+            if (array_key_exists($field, $input)) {
+                $input[$field] = is_scalar($input[$field]) ? SavePlan::normalizePrice($input[$field]) : null;
+            }
         }
 
         foreach (['email', 'phone_secondary', 'complement', 'company_id'] as $field) {

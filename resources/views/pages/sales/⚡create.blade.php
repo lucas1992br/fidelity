@@ -19,8 +19,8 @@ use Livewire\Component;
 
 /**
  * New sale (US-4.1–4.4): stock card checked in real time, holder data,
- * address filled by ViaCEP, plan, monthly amount (prefilled with the plan's
- * suggested price, freely editable), optional company (an employee follows
+ * address filled by ViaCEP, plan, monthly amount and enrollment fee
+ * (prefilled from the plan, freely editable), optional company (an employee follows
  * the company's due day; `?empresa={id}` preselects it) and due day, and the
  * dependents repeater. "Concluir venda" runs `CreateCustomer` in one
  * transaction. Every entry point requires `sales.create`.
@@ -59,6 +59,7 @@ new class extends Component
 
             if ($this->selectedPlan) {
                 $this->customer->monthly_amount = number_format((float) $this->selectedPlan->price, 2, ',', '.');
+                $this->customer->enrollment_fee = number_format((float) $this->selectedPlan->enrollment_fee, 2, ',', '.');
             }
         }
 
@@ -402,6 +403,9 @@ new class extends Component
                             <input type="radio" name="plan" value="{{ $plan->id }}" wire:model.live="customer.plan_id" class="sr-only">
                             <span class="text-[15px] font-semibold text-ink-800">{{ $plan->name }}</span>
                             <span class="text-sm text-ink-700">sugerido {{ \App\Support\Format::money($plan->price) }}/mês</span>
+                            @if ((float) $plan->enrollment_fee > 0)
+                                <span class="text-xs text-ink-500">adesão {{ \App\Support\Format::money($plan->enrollment_fee) }}</span>
+                            @endif
                             <span class="text-xs text-ink-500">{{ $plan->max_dependents === 0 ? 'Não inclui dependentes' : "Até {$plan->max_dependents} dependentes" }}</span>
                         </label>
                     @endforeach
@@ -414,6 +418,9 @@ new class extends Component
         <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,220px),1fr))] gap-4">
             <x-ui.field label="Valor mensal (R$)" for="customer-monthly-amount" error="customer.monthly_amount" hint="Valor cobrado do titular. O preço do plano é só uma sugestão.">
                 <x-ui.input id="customer-monthly-amount" wire:model="customer.monthly_amount" error="customer.monthly_amount" mask="money" placeholder="0,00" />
+            </x-ui.field>
+            <x-ui.field label="Taxa de adesão (R$)" for="customer-enrollment-fee" error="customer.enrollment_fee" hint="Cobrada uma vez, à parte da mensalidade. 0,00 = isento.">
+                <x-ui.input id="customer-enrollment-fee" wire:model="customer.enrollment_fee" error="customer.enrollment_fee" mask="money" placeholder="0,00" />
             </x-ui.field>
             @if ($this->companies->isNotEmpty())
                 <x-ui.field label="Empresa" for="customer-company" error="customer.company_id" hint="Opcional. Funcionário entra na fatura da empresa.">

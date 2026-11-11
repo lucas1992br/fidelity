@@ -21,6 +21,7 @@ class PlanFactory extends Factory
             'name' => 'Plano '.fake('pt_BR')->unique()->word(),
             'description' => fake('pt_BR')->sentence(),
             'price' => fake()->randomFloat(2, 29, 199),
+            'enrollment_fee' => 0,
             'max_dependents' => 0,
             'is_active' => true,
         ];
@@ -33,6 +34,16 @@ class PlanFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'is_active' => false,
+        ]);
+    }
+
+    /**
+     * Plan that charges the given enrollment fee at the sale.
+     */
+    public function withEnrollmentFee(string $fee): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'enrollment_fee' => $fee,
         ]);
     }
 

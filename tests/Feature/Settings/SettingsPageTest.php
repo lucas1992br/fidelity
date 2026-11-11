@@ -89,3 +89,25 @@ test('financeiro gets 403 on mount and on save', function () {
 
     expect(app(ClinicSettings::class)->refresh()->suspend_after_days)->toBe(30);
 });
+
+test('the enrollment commission percentage is saved', function () {
+    actingAsRole('admin');
+
+    Livewire::test('pages::settings')
+        ->set('enrollment_commission_percent', '12.5')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(app(ClinicSettings::class)->refresh()->enrollment_commission_percent)->toBe(12.5);
+});
+
+test('an enrollment commission percentage outside 0 to 100 is rejected', function (string $percent) {
+    actingAsRole('admin');
+
+    Livewire::test('pages::settings')
+        ->set('enrollment_commission_percent', $percent)
+        ->call('save')
+        ->assertHasErrors(['enrollment_commission_percent' => 'between']);
+
+    expect(app(ClinicSettings::class)->refresh()->enrollment_commission_percent)->toBe(0.0);
+})->with(['above 100' => '100.01', 'negative' => '-1']);

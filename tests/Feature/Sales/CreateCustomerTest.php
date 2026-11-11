@@ -2,11 +2,14 @@
 
 use App\Actions\Customers\CreateCustomer;
 use App\Enums\CardStatus;
+use App\Enums\EntryStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\Kinship;
 use App\Models\Card;
 use App\Models\Company;
 use App\Models\Customer;
+use App\Models\FinancialCategory;
+use App\Models\FinancialEntry;
 use App\Models\Invoice;
 use App\Models\Plan;
 use App\Models\PlanChange;
@@ -218,4 +221,50 @@ test('an inactive company is rejected and persists nothing', function () {
         ->toThrow(ValidationException::class, 'Selecione uma empresa ativa.');
 
     assertNothingPersisted();
+});
+
+test('the plan enrollment fee becomes a pending income and is recorded on the sign-up with the commission percentage', function () {
+    $this->travelTo('2026-10-05');
+    settings(['enrollment_commission_percent' => 40.0]);
+    $user = actingAsRole('atendente');
+    $plan = Plan::factory()->withEnrollmentFee('150.00')->create(['price' => '89.90']);
+    Card::factory()->inStock()->create(['number' => '000123']);
+
+    $customer = app(CreateCustomer::class)->handle(saleInput($plan), $user);
+
+    $planChange = $customer->planChanges()->sole();
+    $entry = FinancialEntry::sole();
+
+    expect($planChange->enrollment_fee)->toBe('150.00')
+        ->and($planChange->commission_percent)->toBe('40.00')
+        ->and($entry->financial_category_id)->toBe(FinancialCategory::enrollmentFees()->id)
+        ->and($entry->description)->toBe('Taxa de adesão - Maria Souza')
+        ->and($entry->amount)->toBe('150.00')
+        ->and($entry->due_date->toDateString())->toBe('2026-10-05')
+        ->and($entry->entry_status_id)->toBe(EntryStatus::Pending->id())
+        ->and($entry->supplier_or_payer)->toBe('Maria Souza')
+        ->and($entry->user_id)->toBe($user->id)
+        ->and($customer->invoices()->sole()->amount)->toBe('89.90');
+});
+
+test('the typed enrollment fee replaces the plan fee', function () {
+    $user = actingAsRole('atendente');
+    $plan = Plan::factory()->withEnrollmentFee('150.00')->create();
+    Card::factory()->inStock()->create(['number' => '000123']);
+
+    $customer = app(CreateCustomer::class)->handle(saleInput($plan, ['enrollment_fee' => '99,90']), $user);
+
+    expect($customer->planChanges()->sole()->enrollment_fee)->toBe('99.90')
+        ->and(FinancialEntry::sole()->amount)->toBe('99.90');
+});
+
+test('a sale without enrollment fee books no income', function () {
+    $user = actingAsRole('atendente');
+    $plan = Plan::factory()->withEnrollmentFee('150.00')->create();
+    Card::factory()->inStock()->create(['number' => '000123']);
+
+    $customer = app(CreateCustomer::class)->handle(saleInput($plan, ['enrollment_fee' => '0,00']), $user);
+
+    expect($customer->planChanges()->sole()->enrollment_fee)->toBe('0.00')
+        ->and(FinancialEntry::count())->toBe(0);
 });

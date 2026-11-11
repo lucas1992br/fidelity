@@ -170,3 +170,17 @@ test('the sale saves the typed monthly amount', function () {
 
     expect(Customer::sole()->monthly_amount)->toBe('65.00');
 });
+
+test('choosing the plan prefills its enrollment fee and the typed fee is charged', function () {
+    actingAsRole('atendente');
+    $plan = Plan::factory()->withEnrollmentFee('150.00')->create();
+    Card::factory()->inStock()->create(['number' => '000123']);
+
+    salePage($plan)
+        ->assertSet('customer.enrollment_fee', '150,00')
+        ->set('customer.enrollment_fee', '1.050,00')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(Customer::sole()->planChanges()->sole()->enrollment_fee)->toBe('1050.00');
+});

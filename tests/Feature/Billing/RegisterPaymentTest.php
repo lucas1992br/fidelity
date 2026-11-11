@@ -200,7 +200,7 @@ test('only card and boleto payments may be split into installments', function (P
     expect(paymentError(fn () => registerPayment($invoice, ['payment_method' => $method->value, 'installments' => 2]), 'installments'))
         ->toBe('Só é possível parcelar no cartão ou no boleto.')
         ->and(Payment::count())->toBe(0);
-})->with([PaymentMethod::Pix, PaymentMethod::Cash]);
+})->with([PaymentMethod::Pix, PaymentMethod::Cash, PaymentMethod::Recurring]);
 
 test('more than 12 installments are rejected', function () {
     $invoice = Invoice::factory()->create();
@@ -294,3 +294,15 @@ test('card digits are rejected when incomplete or not paying by card', function 
     'incomplete' => [['payment_method' => PaymentMethod::Card->value, 'card_digits' => '498407-95'], 'Informe os 6 primeiros e os 4 últimos dígitos do cartão.'],
     'not a card payment' => [['payment_method' => PaymentMethod::Pix->value, 'card_digits' => '498407-9593'], 'Os dígitos do cartão só valem para pagamento com cartão.'],
 ]);
+
+test('a recurring card payment pays the invoice with its own method and remembers the payer card', function () {
+    $customer = Customer::factory()->withCard()->create();
+    $invoice = Invoice::factory()->for($customer)->forMonth('2026-10')->create();
+
+    $payment = registerPayment($invoice, ['payment_method' => PaymentMethod::Recurring->value, 'card_digits' => '498407-9593']);
+
+    expect($payment->payment_method_id)->toBe(PaymentMethod::Recurring->id())
+        ->and($payment->methodLabel())->toBe('Cartão recorrente')
+        ->and($invoice->refresh()->hasStatus(InvoiceStatus::Paid))->toBeTrue()
+        ->and($customer->paymentCards()->sole()->masked_number)->toBe('498407******9593');
+});

@@ -63,9 +63,25 @@ test('the sales report totals each user sales, re-enrollments and amounts with t
 
     expect($data['sales'])->toHaveCount(3)
         ->and($data['totals'])->toBe([
-            ['user' => 'Ana Atendente', 'sales' => 2, 'reenrollments' => 0, 'monthly' => '160.00', 'paid_sales' => 1, 'paid_monthly' => '100.00'],
-            ['user' => 'Bruno Atendente', 'sales' => 0, 'reenrollments' => 1, 'monthly' => '80.00', 'paid_sales' => 0, 'paid_monthly' => '0.00'],
+            ['user' => 'Ana Atendente', 'sales' => 2, 'reenrollments' => 0, 'monthly' => '160.00', 'paid_sales' => 1, 'paid_monthly' => '100.00', 'enrollment_fees' => '0.00', 'commission' => '0.00'],
+            ['user' => 'Bruno Atendente', 'sales' => 0, 'reenrollments' => 1, 'monthly' => '80.00', 'paid_sales' => 0, 'paid_monthly' => '0.00', 'enrollment_fees' => '0.00', 'commission' => '0.00'],
         ]);
+});
+
+test('the commission is the sale percentage of the enrollment fee, due only once the first invoice is paid', function () {
+    $ana = User::factory()->create(['name' => 'Ana Atendente']);
+    $paidCustomer = Customer::factory()->create();
+    PlanChange::factory()->for($paidCustomer)->for($ana)->sale()->withEnrollmentFee('99.99', '12.50')->create(['created_at' => '2026-10-05 09:00']);
+    Invoice::factory()->for($paidCustomer)->forMonth('2026-10')->paid()->create(['created_at' => '2026-10-05 09:00']);
+    $openCustomer = Customer::factory()->create();
+    PlanChange::factory()->for($openCustomer)->for($ana)->sale()->withEnrollmentFee('200.00', '50.00')->create(['created_at' => '2026-10-06 09:00']);
+    Invoice::factory()->for($openCustomer)->forMonth('2026-10')->create(['created_at' => '2026-10-06 09:00']);
+
+    $data = (new SalesByUserReport($this->from, $this->until))->pdfData();
+
+    expect($data['sales']->map(SalesByUserReport::commissionDueOf(...))->all())->toBe(['12.50', '0.00'])
+        ->and($data['totals'][0]['enrollment_fees'])->toBe('299.99')
+        ->and($data['totals'][0]['commission'])->toBe('12.50');
 });
 
 test('the sales report is filtered by the chosen user on the reports screen', function () {

@@ -47,6 +47,7 @@ class FinancialCategorySeeder extends Seeder
     {
         return [
             ['name' => 'Mensalidades', 'entry_type' => 'income', 'is_system' => true],
+            ['name' => 'Taxas de adesão', 'entry_type' => 'income', 'is_system' => true],
             ['name' => 'Outras receitas', 'entry_type' => 'income'],
             ['name' => 'Aluguel', 'entry_type' => 'expense'],
             ['name' => 'Salários', 'entry_type' => 'expense'],

@@ -15,7 +15,8 @@ test('clinic settings start with the initial program parameters', function () {
         ->and($settings->invoice_generation_day)->toBe(20)
         ->and($settings->min_card_stock)->toBe(50)
         ->and($settings->card_number_pattern)->toBeNull()
-        ->and(DB::table('settings')->where('group', 'clinic')->count())->toBe(9);
+        ->and($settings->enrollment_commission_percent)->toBe(0.0)
+        ->and(DB::table('settings')->where('group', 'clinic')->count())->toBe(10);
 });
 
 test('changing a clinic setting is persisted immediately', function () {

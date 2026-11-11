@@ -17,6 +17,8 @@ use Illuminate\Support\Carbon;
  * @property int $to_plan_id
  * @property string|null $from_price
  * @property string $to_price
+ * @property string|null $enrollment_fee Fee charged at a sign-up; null on other changes.
+ * @property string|null $commission_percent Seller's commission on the enrollment fee, as set at the sale.
  * @property string|null $reason
  * @property int $user_id
  * @property Carbon|null $created_at
@@ -39,6 +41,8 @@ class PlanChange extends Model
         'to_plan_id',
         'from_price',
         'to_price',
+        'enrollment_fee',
+        'commission_percent',
         'reason',
         'user_id',
     ];
@@ -53,6 +57,8 @@ class PlanChange extends Model
         return [
             'from_price' => 'decimal:2',
             'to_price' => 'decimal:2',
+            'enrollment_fee' => 'decimal:2',
+            'commission_percent' => 'decimal:2',
         ];
     }
 

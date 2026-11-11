@@ -12,6 +12,7 @@ enum PaymentMethod: string
     case Cash = 'cash';
     case Card = 'card';
     case Boleto = 'boleto';
+    case Recurring = 'recurring';
 
     public function label(): string
     {
@@ -20,6 +21,7 @@ enum PaymentMethod: string
             self::Cash => 'Dinheiro',
             self::Card => 'Cartão',
             self::Boleto => 'Boleto',
+            self::Recurring => 'Cartão recorrente',
         };
     }
 
@@ -29,5 +31,15 @@ enum PaymentMethod: string
     public function allowsInstallments(): bool
     {
         return in_array($this, [self::Card, self::Boleto], true);
+    }
+
+    /**
+     * Whether the payment is charged on the payer's credit card, so the first
+     * 6 and last 4 digits may be recorded for the card reconciliation. The
+     * recurring card is charged monthly outside the system and only settled here.
+     */
+    public function isCreditCard(): bool
+    {
+        return in_array($this, [self::Card, self::Recurring], true);
     }
 }

@@ -55,6 +55,11 @@ class CustomerForm extends Form
     public string $monthly_amount = '';
 
     /**
+     * Enrollment fee typed as pt-BR money ("1.234,56"); new sale only.
+     */
+    public string $enrollment_fee = '';
+
+    /**
      * Company of an employee sale; empty for an individual holder. New sale only.
      */
     public int|string|null $company_id = null;
@@ -93,7 +98,7 @@ class CustomerForm extends Form
     {
         $normalized = CustomerRules::normalize($this->except('customerId'));
 
-        $this->fill(array_map(fn (mixed $value): mixed => $value ?? '', Arr::except($normalized, ['monthly_amount'])));
+        $this->fill(array_map(fn (mixed $value): mixed => $value ?? '', Arr::except($normalized, ['monthly_amount', 'enrollment_fee'])));
 
         return CustomerRules::normalize($this->validate());
     }
@@ -104,7 +109,11 @@ class CustomerForm extends Form
     protected function rules(): array
     {
         return $this->customerId === null
-            ? [...CustomerRules::rules(), 'monthly_amount' => ['required', 'regex:/^\d{1,3}(\.?\d{3})*(,\d{1,2})?$/']]
+            ? [
+                ...CustomerRules::rules(),
+                'monthly_amount' => ['required', 'regex:/^\d{1,3}(\.?\d{3})*(,\d{1,2})?$/'],
+                'enrollment_fee' => ['required', 'regex:/^\d{1,3}(\.?\d{3})*(,\d{1,2})?$/'],
+            ]
             : CustomerRules::updateRules($this->customerId);
     }
 

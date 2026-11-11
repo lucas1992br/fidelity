@@ -19,7 +19,7 @@ test('plan seeder creates exactly the two active plans from the spec', function 
     ]);
 });
 
-test('mensalidades is the only system category and it is an income', function () {
+test('mensalidades and taxas de adesão are the only system categories and both are incomes', function () {
     seedDomain();
 
     $systemCategories = DB::table('financial_categories')
@@ -28,7 +28,7 @@ test('mensalidades is the only system category and it is an income', function ()
         ->get(['financial_categories.name', 'entry_types.slug']);
 
     expect($systemCategories->map(fn (object $category): array => (array) $category)->all())
-        ->toBe([['name' => 'Mensalidades', 'slug' => 'income']]);
+        ->toBe([['name' => 'Mensalidades', 'slug' => 'income'], ['name' => 'Taxas de adesão', 'slug' => 'income']]);
 });
 
 test('financial categories are seeded with their entry types', function () {
@@ -42,6 +42,7 @@ test('financial categories are seeded with their entry types', function () {
 
     expect($categories)->toBe([
         'Mensalidades' => 'income',
+        'Taxas de adesão' => 'income',
         'Outras receitas' => 'income',
         'Aluguel' => 'expense',
         'Salários' => 'expense',
@@ -57,5 +58,5 @@ test('running the domain seeders again does not duplicate rows', function () {
     seedDomain();
 
     expect(DB::table('plans')->count())->toBe(2)
-        ->and(DB::table('financial_categories')->count())->toBe(8);
+        ->and(DB::table('financial_categories')->count())->toBe(9);
 });

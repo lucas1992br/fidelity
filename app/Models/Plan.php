@@ -17,6 +17,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property string $name
  * @property string|null $description
  * @property string $price
+ * @property string $enrollment_fee One-off fee charged at the sale; the seller's commission is a percentage of it.
  * @property int $max_dependents
  * @property bool $is_active
  * @property Carbon|null $created_at
@@ -37,6 +38,7 @@ class Plan extends Model
         'name',
         'description',
         'price',
+        'enrollment_fee',
         'max_dependents',
         'is_active',
     ];
@@ -63,6 +65,7 @@ class Plan extends Model
     {
         return [
             'price' => 'decimal:2',
+            'enrollment_fee' => 'decimal:2',
             'max_dependents' => 'integer',
             'is_active' => 'boolean',
         ];

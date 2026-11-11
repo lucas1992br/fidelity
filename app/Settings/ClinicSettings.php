@@ -42,6 +42,11 @@ class ClinicSettings extends Settings
      */
     public ?string $card_number_pattern;
 
+    /**
+     * Percentage (0–100) of the enrollment fee paid to the seller as commission.
+     */
+    public float $enrollment_commission_percent;
+
     public static function group(): string
     {
         return 'clinic';

@@ -21,6 +21,22 @@ test('creates a plan from a pt-BR money input', function () {
         ->and($plan->max_dependents)->toBe(7);
 });
 
+test('the enrollment fee is saved from a pt-BR money input and is zero when blank', function (?string $fee, string $expected) {
+    $plan = app(SavePlan::class)->handle([
+        'name' => 'Individual',
+        'price' => '49,90',
+        'enrollment_fee' => $fee,
+        'max_dependents' => 0,
+        'is_active' => true,
+    ]);
+
+    expect($plan->refresh()->enrollment_fee)->toBe($expected);
+})->with([
+    'typed' => ['1.150,00', '1150.00'],
+    'blank' => ['', '0.00'],
+    'missing' => [null, '0.00'],
+]);
+
 test('changing the price keeps existing invoices and applies only to the next generations', function () {
     $plan = Plan::factory()->create(['price' => '89.90']);
     $customer = Customer::factory()->for($plan)->create();
@@ -52,6 +68,7 @@ test('negative price and dependents are rejected', function (array $override) {
     ]);
 })->throws(ValidationException::class)->with([
     'price' => [['price' => '-1,00']],
+    'enrollment_fee' => [['enrollment_fee' => '-1,00']],
     'max_dependents' => [['max_dependents' => -1]],
 ]);
 

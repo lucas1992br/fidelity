@@ -223,7 +223,7 @@ new class extends Component
                 'payment_method' => $this->method,
                 'months' => $this->months,
                 'installments' => $this->installments,
-                'card_digits' => $this->method === PaymentMethodEnum::Card->value ? $this->cardDigits : null,
+                'card_digits' => PaymentMethodEnum::tryFrom($this->method)?->isCreditCard() ? $this->cardDigits : null,
                 'notes' => $this->notes,
             ], auth()->user());
         } catch (ValidationException $exception) {
@@ -295,7 +295,7 @@ new class extends Component
                 </x-ui.field>
             @endif
 
-            @if ($method === 'card')
+            @if (\App\Enums\PaymentMethod::tryFrom($method)?->isCreditCard())
                 <x-ui.field label="Cartão do pagador" for="payment-card-digits" error="cardDigits" hint="6 primeiros e 4 últimos dígitos, para conciliar com o extrato da Granito. Nunca o número completo.">
                     <x-ui.input id="payment-card-digits" wire:model="cardDigits" error="cardDigits" mask="card-digits" autocomplete="off" />
                 </x-ui.field>

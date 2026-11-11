@@ -4,10 +4,15 @@ namespace App\Actions\Customers;
 
 use App\Actions\Billing\IssueInvoice;
 use App\Actions\Cards\AssignCard;
+use App\Enums\EntryStatus as EntryStatusEnum;
+use App\Enums\EntryType as EntryTypeEnum;
 use App\Models\Company;
 use App\Models\Customer;
+use App\Models\FinancialCategory;
+use App\Models\FinancialEntry;
 use App\Models\Plan;
 use App\Models\User;
+use App\Settings\ClinicSettings;
 use App\Support\Billing\DueDate;
 use App\Support\Customers\CustomerRules;
 use Illuminate\Support\Arr;
@@ -24,6 +29,11 @@ use Illuminate\Validation\ValidationException;
  * The monthly amount is typed at the sale; the plan price is only the
  * suggestion, used when no amount is given. A holder sold as a company employee follows the company's due
  * day, and the invoices join the company's consolidated bill.
+ *
+ * The enrollment fee is also typed at the sale (the plan's fee when none is
+ * given). It is recorded on the sign-up row with the current commission
+ * percentage, and a fee above zero becomes a pending income in the "Taxas de
+ * adesão" category, due today and settled in accounts receivable.
  */
 class CreateCustomer
 {
@@ -36,6 +46,7 @@ class CreateCustomer
         protected AssignCard $assignCard,
         protected AddDependent $addDependent,
         protected IssueInvoice $issueInvoice,
+        protected ClinicSettings $settings,
     ) {}
 
     /**
@@ -68,6 +79,7 @@ class CreateCustomer
             AddDependent::ensureFitsPlan($plan, count($validated['dependents']));
 
             $validated['monthly_amount'] ??= $plan->price;
+            $enrollmentFee = $validated['enrollment_fee'] ?? $plan->enrollment_fee;
 
             if (filled($validated['company_id'] ?? null)) {
                 $company = Company::query()->active()->whereKey($validated['company_id'])->lockForUpdate()->first();
@@ -80,7 +92,7 @@ class CreateCustomer
             }
 
             $customer = Customer::create([
-                ...Arr::except($validated, ['card_number', 'dependents']),
+                ...Arr::except($validated, ['card_number', 'dependents', 'enrollment_fee']),
                 'joined_at' => today(),
             ]);
 
@@ -89,6 +101,8 @@ class CreateCustomer
                 'to_plan_id' => $plan->id,
                 'from_price' => null,
                 'to_price' => $validated['monthly_amount'],
+                'enrollment_fee' => $enrollmentFee,
+                'commission_percent' => number_format($this->settings->enrollment_commission_percent, 2, '.', ''),
                 'reason' => self::Reason,
                 'user_id' => $user->id,
             ]);
@@ -101,8 +115,29 @@ class CreateCustomer
 
             $this->issueInvoice->handle($customer, DueDate::next(today(), $customer->due_day));
 
+            if (bccomp($enrollmentFee, '0', 2) > 0) {
+                $this->bookEnrollmentFee($customer, $enrollmentFee, $user);
+            }
+
             return $customer;
         });
+    }
+
+    /**
+     * Pending income of the enrollment fee, received apart from the monthly fees.
+     */
+    protected function bookEnrollmentFee(Customer $customer, string $fee, User $user): void
+    {
+        FinancialEntry::create([
+            'entry_type_id' => EntryTypeEnum::Income->id(),
+            'financial_category_id' => FinancialCategory::enrollmentFees()->id,
+            'description' => "Taxa de adesão - {$customer->name}",
+            'amount' => $fee,
+            'due_date' => today(),
+            'entry_status_id' => EntryStatusEnum::Pending->id(),
+            'supplier_or_payer' => $customer->name,
+            'user_id' => $user->id,
+        ]);
     }
 
     /**
