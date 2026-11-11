@@ -57,7 +57,7 @@ class SuspendDelinquentCards
                     $this->changeCardStatus->handle(
                         $card,
                         CardStatusEnum::Suspended,
-                        "Suspensão automática: {$daysOverdue} dias em atraso",
+                        "Suspensão automática: {$daysOverdue} ".($daysOverdue === 1 ? 'dia' : 'dias').' em atraso',
                     );
 
                     return true;
