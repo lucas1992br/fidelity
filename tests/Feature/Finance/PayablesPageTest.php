@@ -54,7 +54,7 @@ test('settling an expense removes it from the list', function () {
 
 test('a user with only finance.view does not get the settle action', function () {
     actingAsFinanceViewer();
-    FinancialEntry::factory()->expense()->pending()->create(['description' => 'Conta de luz']);
+    FinancialEntry::factory()->expense()->pending()->create(['description' => 'Conta de luz', 'due_date' => '2026-10-20']);
 
     Livewire::test('pages::finance.payables')
         ->assertSee('Conta de luz')
@@ -67,4 +67,19 @@ test('atendente gets 403 and the payables route renders the page', function () {
 
     actingAsRole('financeiro');
     $this->withoutVite()->get(route('finance.payables'))->assertOk()->assertSee('Vencendo em 7 dias');
+});
+
+test('expenses due after the period are left out and a whole month is picked at once', function () {
+    actingAsRole('financeiro');
+    $october = FinancialEntry::factory()->expense()->pending()->create(['description' => 'Aluguel de outubro', 'due_date' => '2026-10-25']);
+    $december = FinancialEntry::factory()->expense()->pending()->create(['description' => 'Aluguel de dezembro', 'due_date' => '2026-12-25']);
+
+    Livewire::test('pages::finance.payables')
+        ->assertSee('Aluguel de outubro')
+        ->assertDontSee('Aluguel de dezembro')
+        ->set('month', '2026-12')
+        ->assertSet('from', '2026-12-01')
+        ->assertSet('until', '2026-12-31')
+        ->assertSee(['Dezembro de 2026', 'Aluguel de dezembro'])
+        ->assertDontSee('Aluguel de outubro');
 });
