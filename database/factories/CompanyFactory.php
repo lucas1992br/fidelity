@@ -27,6 +27,7 @@ class CompanyFactory extends Factory
             'email' => $faker->unique()->companyEmail(),
             'phone' => $faker->numerify('113#######'),
             'due_day' => $faker->numberBetween(1, 28),
+            'monthly_amount' => fake()->randomFloat(2, 300, 3000),
             'notes' => null,
             'is_active' => true,
         ];

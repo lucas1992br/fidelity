@@ -4,13 +4,14 @@ namespace App\Reports;
 
 use App\Enums\InvoiceStatus;
 use App\Exports\InvoicesExport;
-use App\Models\Invoice;
 use App\Queries\InvoicesQuery;
-use Illuminate\Database\Eloquent\Builder;
+use App\Support\Billing\BillingRow;
+use Illuminate\Database\Query\Builder;
 
 /**
- * Invoices due in the period, by status and plan, with the summary of the
- * Mensalidades screen (InvoicesQuery); cancelled invoices stay out of the total.
+ * Holder invoices and company bills (in place of the employees) due in the
+ * period, by status and plan, with the summary of the Mensalidades screen
+ * (InvoicesQuery); cancelled lines stay out of the total.
  */
 class InvoicesReport extends Report
 {
@@ -52,22 +53,22 @@ class InvoicesReport extends Report
     }
 
     /**
-     * @return Builder<Invoice>
+     * Rows of {@see BillingRow} records, in the listing order.
      */
     public function query(): Builder
     {
-        return $this->invoices()->ordered()->with('plan:id,name');
+        return $this->invoices()->rows();
     }
 
     public function rowCount(): int
     {
-        return $this->invoices()->builder()->count();
+        return $this->query()->count();
     }
 
     public function pdfData(): array
     {
         return [
-            'invoices' => $this->query()->get(),
+            'invoices' => $this->query()->get()->map(fn (object $record): BillingRow => BillingRow::fromRecord($record)),
             'summary' => $this->invoices()->summary(),
         ];
     }

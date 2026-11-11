@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Billing\IssueInvoice;
+use App\Actions\Billing\RegisterCompanyPayment;
 use App\Enums\InvoiceStatus;
 use App\Models\Company;
 use App\Models\Customer;
@@ -54,13 +55,43 @@ test('amount and plan stay frozen after the plan price changes', function () {
         ->and($invoice->plan_id)->toBe($plan->id);
 });
 
-test('the invoice freezes the holder monthly amount and company, not the plan price', function () {
+test('the invoice freezes the holder monthly amount, not the plan price', function () {
     $plan = Plan::factory()->create(['price' => '89.90']);
-    $company = Company::factory()->create();
-    $customer = Customer::factory()->for($plan)->forCompany($company)->create(['monthly_amount' => '45.00']);
+    $customer = Customer::factory()->for($plan)->create(['monthly_amount' => '45.00']);
 
     $invoice = app(IssueInvoice::class)->handle($customer, now()->setDate(2026, 11, 1));
 
     expect($invoice->amount)->toBe('45.00')
-        ->and($invoice->company_id)->toBe($company->id);
+        ->and($invoice->company_id)->toBeNull();
+});
+
+test('an employee invoice is zero and the month bill freezes the company fixed amount once', function () {
+    $company = Company::factory()->create(['monthly_amount' => '1200.00']);
+    $first = Customer::factory()->forCompany($company)->create(['monthly_amount' => '45.00']);
+    $second = Customer::factory()->forCompany($company)->create();
+
+    $invoice = app(IssueInvoice::class)->handle($first, now()->setDate(2026, 11, 1));
+    $company->update(['monthly_amount' => '1500.00']);
+    app(IssueInvoice::class)->handle($second, now()->setDate(2026, 11, 1));
+
+    $bill = $company->bills()->sole();
+
+    expect($invoice->amount)->toBe('0.00')
+        ->and($invoice->company_id)->toBe($company->id)
+        ->and($bill->reference_month->toDateString())->toBe('2026-11-01')
+        ->and($bill->amount)->toBe('1200.00');
+});
+
+test('an employee joining a month the company already paid gets the invoice paid by that payment', function () {
+    $this->travelTo('2026-11-03');
+    actingAsRole('financeiro');
+    $company = Company::factory()->create(['monthly_amount' => '1200.00', 'due_day' => 10]);
+    app(IssueInvoice::class)->handle(Customer::factory()->forCompany($company)->withCard()->create(), today());
+    $payment = app(RegisterCompanyPayment::class)->handle($company, '2026-11', ['paid_at' => '2026-11-03', 'amount' => '1200.00', 'payment_method' => 'pix'], auth()->user());
+
+    $invoice = app(IssueInvoice::class)->handle(Customer::factory()->forCompany($company)->withCard()->create(), today());
+
+    expect($invoice->hasStatus(InvoiceStatus::Paid))->toBeTrue()
+        ->and($invoice->paid_at->toDateString())->toBe('2026-11-03')
+        ->and($payment->invoices()->pluck('invoices.id'))->toContain($invoice->id);
 });

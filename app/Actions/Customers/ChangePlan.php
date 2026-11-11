@@ -65,6 +65,10 @@ class ChangePlan
 
             $validated['monthly_amount'] ??= $isSamePlan ? $customer->monthly_amount : $plan->price;
 
+            if ($customer->isEmployee()) {
+                $validated['monthly_amount'] = '0.00';
+            }
+
             if ($isSamePlan && bccomp($validated['monthly_amount'], $customer->monthly_amount, 2) === 0) {
                 throw ValidationException::withMessages(['plan_id' => "O titular já está no plano {$plan->name} com este valor."]);
             }

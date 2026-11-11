@@ -16,8 +16,9 @@ use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * Company with a corporate card contract: its employees are holders with
- * their own card, dependents and monthly amount, all due on the company's
- * `due_day`, and the company pays one consolidated bill per month.
+ * their own card and dependents, all due on the company's `due_day`, and the
+ * company pays one consolidated bill per month at its fixed `monthly_amount`,
+ * whatever the number of employees.
  *
  * @property int $id
  * @property string $name
@@ -27,6 +28,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property string|null $email
  * @property string $phone
  * @property int $due_day
+ * @property numeric-string $monthly_amount Fixed amount of the monthly bill.
  * @property string|null $notes
  * @property bool $is_active
  * @property Carbon|null $created_at
@@ -53,6 +55,7 @@ class Company extends Model
         'email',
         'phone',
         'due_day',
+        'monthly_amount',
         'notes',
         'is_active',
     ];
@@ -79,6 +82,7 @@ class Company extends Model
     {
         return [
             'due_day' => 'integer',
+            'monthly_amount' => 'decimal:2',
             'is_active' => 'boolean',
         ];
     }
@@ -101,6 +105,16 @@ class Company extends Model
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    /**
+     * Consolidated bills, one per reference month, with the fixed amount frozen.
+     *
+     * @return HasMany<CompanyBill, $this>
+     */
+    public function bills(): HasMany
+    {
+        return $this->hasMany(CompanyBill::class);
     }
 
     /**

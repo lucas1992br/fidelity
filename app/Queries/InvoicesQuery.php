@@ -3,14 +3,30 @@
 namespace App\Queries;
 
 use App\Enums\InvoiceStatus;
+use App\Models\Card;
+use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Invoice;
+use App\Models\InvoicePayment;
+use App\Models\Payment;
+use App\Models\Plan;
+use App\Support\Billing\BillingRow;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Support\Facades\DB;
 
 /**
- * Filtered invoices and their summary (US-8.4), shared by the Mensalidades
- * screen and the invoices report. The period is either a reference month
- * ("2026-10") or a due date interval; the month wins when both are given.
+ * Filtered billing lines and their summary (US-8.4), shared by the
+ * Mensalidades screen and the invoices report: the invoices of individual
+ * holders plus one line per company bill and reference month, in place of
+ * the employees' invoices (which never show up on their own). A company
+ * bill's amount is its frozen fixed amount (plus the employee invoices of
+ * months billed before it), its due date the earliest of its invoices, and
+ * its status follows them: overdue, else open, else paid, else cancelled.
+ *
+ * The period is either a reference month ("2026-10") or a due date interval;
+ * the month wins when both are given. The plan filter keeps only holder
+ * invoices; the customer filter also finds companies by name or CNPJ.
  * Filters that do not parse are ignored, since they come from the URL.
  *
  * @phpstan-type SummaryLine array{amount: string, count: int}
@@ -28,7 +44,8 @@ class InvoicesQuery
     ) {}
 
     /**
-     * Invoices matching every filter, without ordering.
+     * Invoices of individual holders matching every filter, without ordering.
+     * Employee invoices are left out: they are shown as their company bill.
      *
      * @return Builder<Invoice>
      */
@@ -37,11 +54,12 @@ class InvoicesQuery
         $month = $this->validMonth();
 
         return Invoice::query()
+            ->whereNull('invoices.company_id')
             ->when($month, fn (Builder $query, string $month) => $query->forMonth($month))
-            ->when(! $month && $this->validDate($this->dueFrom), fn (Builder $query) => $query->whereDate('due_date', '>=', $this->dueFrom))
-            ->when(! $month && $this->validDate($this->dueUntil), fn (Builder $query) => $query->whereDate('due_date', '<=', $this->dueUntil))
-            ->when($this->status, fn (Builder $query, InvoiceStatus $status) => $query->where('invoice_status_id', $status->id()))
-            ->when($this->planId, fn (Builder $query, int $planId) => $query->where('plan_id', $planId))
+            ->when(! $month && $this->validDate($this->dueFrom), fn (Builder $query) => $query->whereDate('invoices.due_date', '>=', $this->dueFrom))
+            ->when(! $month && $this->validDate($this->dueUntil), fn (Builder $query) => $query->whereDate('invoices.due_date', '<=', $this->dueUntil))
+            ->when($this->status, fn (Builder $query, InvoiceStatus $status) => $query->where('invoices.invoice_status_id', $status->id()))
+            ->when($this->planId, fn (Builder $query, int $planId) => $query->where('invoices.plan_id', $planId))
             ->when(filled($this->customer), fn (Builder $query) => $query->whereHas(
                 'customer',
                 fn (Builder $customers) => $customers->search((string) $this->customer),
@@ -49,22 +67,81 @@ class InvoicesQuery
     }
 
     /**
-     * Listing order: due date, then holder, most recent first.
-     *
-     * @return Builder<Invoice>
+     * Company bills matching every filter, one row per company and reference
+     * month, with the columns of {@see self::rows()}.
      */
-    public function ordered(): Builder
+    public function companyBills(): QueryBuilder
     {
-        return $this->builder()
-            ->with(['customer:id,name', 'customer.currentCard', 'customer.lastCard', 'activePayment'])
+        $month = $this->validMonth();
+        $status = fn (InvoiceStatus $status): int => $status->id();
+
+        $bills = Invoice::query()
+            ->toBase()
+            ->whereNotNull('company_id')
+            ->groupBy('company_id', 'reference_month')
+            ->select(['company_id', 'reference_month'])
+            ->selectRaw('min(due_date) as due_date, max(paid_at) as paid_at')
+            ->selectRaw('count(*) filter (where invoice_status_id <> ?) as employees', [$status(InvoiceStatus::Cancelled)])
+            ->selectRaw('coalesce(sum(amount) filter (where invoice_status_id <> ?), 0) as invoices_amount', [$status(InvoiceStatus::Cancelled)])
+            ->selectRaw(
+                '(case when bool_or(invoice_status_id = ?) then ? when bool_or(invoice_status_id = ?) then ? when bool_or(invoice_status_id = ?) then ? else ? end)::bigint as invoice_status_id',
+                [
+                    $status(InvoiceStatus::Overdue), $status(InvoiceStatus::Overdue),
+                    $status(InvoiceStatus::Open), $status(InvoiceStatus::Open),
+                    $status(InvoiceStatus::Paid), $status(InvoiceStatus::Paid),
+                    $status(InvoiceStatus::Cancelled),
+                ],
+            );
+
+        return DB::query()
+            ->fromSub($bills, 'bills')
+            ->join('companies', 'companies.id', '=', 'bills.company_id')
+            ->leftJoin('company_bills', fn ($join) => $join
+                ->on('company_bills.company_id', '=', 'bills.company_id')
+                ->on('company_bills.reference_month', '=', 'bills.reference_month'))
+            ->selectRaw("'".BillingRow::KindCompanyBill."' as kind, bills.company_id as id, null::bigint as customer_id, bills.company_id as company_id")
+            ->selectRaw("coalesce(nullif(companies.trade_name, ''), companies.name) as name, null::varchar as card_number, null::varchar as plan_name")
+            ->selectRaw('bills.reference_month, bills.due_date')
+            ->selectRaw('(case when bills.invoice_status_id = ? then 0 else coalesce(company_bills.amount, 0) + bills.invoices_amount end)::numeric(12, 2) as amount', [$status(InvoiceStatus::Cancelled)])
+            ->selectRaw('bills.invoice_status_id, bills.paid_at')
+            ->selectSub(Payment::query()
+                ->toBase()
+                ->select('payments.id')
+                ->join('invoices as paid_invoices', 'paid_invoices.id', '=', 'payments.invoice_id')
+                ->whereColumn('payments.company_id', 'bills.company_id')
+                ->whereColumn('paid_invoices.reference_month', 'bills.reference_month')
+                ->whereNull('payments.refunded_at')
+                ->orderByDesc('payments.id')
+                ->limit(1), 'payment_id')
+            ->selectRaw('bills.employees::int as employees')
+            ->when($this->planId, fn (QueryBuilder $query) => $query->whereRaw('false'))
+            ->when($month, fn (QueryBuilder $query, string $month) => $query->whereDate('bills.reference_month', Invoice::referenceMonth($month)))
+            ->when(! $month && $this->validDate($this->dueFrom), fn (QueryBuilder $query) => $query->whereDate('bills.due_date', '>=', $this->dueFrom))
+            ->when(! $month && $this->validDate($this->dueUntil), fn (QueryBuilder $query) => $query->whereDate('bills.due_date', '<=', $this->dueUntil))
+            ->when($this->status, fn (QueryBuilder $query, InvoiceStatus $status) => $query->where('bills.invoice_status_id', $status->id()))
+            ->when(filled($this->customer), fn (QueryBuilder $query) => $query->whereIn(
+                'bills.company_id',
+                Company::withTrashed()->search((string) $this->customer)->select('id'),
+            ));
+    }
+
+    /**
+     * Holder invoices and company bills as one listing of
+     * {@see BillingRow} records: due date, then name, most recent first.
+     */
+    public function rows(): QueryBuilder
+    {
+        return DB::query()
+            ->fromSub($this->holderInvoiceRows()->unionAll($this->companyBills()), 'billing_rows')
             ->orderByDesc('due_date')
-            ->orderBy(Customer::select('name')->whereColumn('customers.id', 'invoices.customer_id'))
+            ->orderBy('name')
             ->orderByDesc('id');
     }
 
     /**
-     * Amount and count of the filtered invoices by status in a single
-     * aggregate query; cancelled invoices are left out of the total.
+     * Amount and count of the filtered lines (holder invoices and company
+     * bills) by status in a single aggregate query; cancelled lines are left
+     * out of the total.
      *
      * @return Summary
      */
@@ -85,7 +162,10 @@ class InvoicesQuery
             array_push($bindings, $statusId, $statusId);
         }
 
-        $row = $this->builder()->toBase()->selectRaw(implode(', ', $columns), $bindings)->first();
+        $row = DB::query()
+            ->fromSub($this->holderInvoiceRows()->unionAll($this->companyBills()), 'billing_rows')
+            ->selectRaw(implode(', ', $columns), $bindings)
+            ->first();
 
         $line = fn (string $key): array => [
             'amount' => (string) $row->{"{$key}_amount"},
@@ -98,6 +178,35 @@ class InvoicesQuery
             'open' => $line('open'),
             'overdue' => $line('overdue'),
         ];
+    }
+
+    /**
+     * Holder invoices with the columns of {@see self::rows()}.
+     */
+    protected function holderInvoiceRows(): QueryBuilder
+    {
+        return $this->builder()
+            ->toBase()
+            ->selectRaw("'".BillingRow::KindInvoice."' as kind, invoices.id as id, invoices.customer_id as customer_id, null::bigint as company_id")
+            ->selectSub(Customer::withTrashed()->toBase()->select('name')->whereColumn('customers.id', 'invoices.customer_id'), 'name')
+            ->selectSub(Card::query()
+                ->toBase()
+                ->select('number')
+                ->whereColumn('cards.customer_id', 'invoices.customer_id')
+                ->orderByDesc('is_current')
+                ->orderByRaw('assigned_at desc nulls last')
+                ->orderByDesc('id')
+                ->limit(1), 'card_number')
+            ->selectSub(Plan::withTrashed()->toBase()->select('name')->whereColumn('plans.id', 'invoices.plan_id'), 'plan_name')
+            ->selectRaw('invoices.reference_month, invoices.due_date, invoices.amount::numeric(12, 2) as amount, invoices.invoice_status_id, invoices.paid_at')
+            ->selectSub(DB::table((new InvoicePayment)->getTable())
+                ->join('payments', 'payments.id', '=', 'invoice_payment.payment_id')
+                ->select('payments.id')
+                ->whereColumn('invoice_payment.invoice_id', 'invoices.id')
+                ->whereNull('payments.refunded_at')
+                ->orderByDesc('payments.id')
+                ->limit(1), 'payment_id')
+            ->selectRaw('0 as employees');
     }
 
     protected function validMonth(): ?string

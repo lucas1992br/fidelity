@@ -31,7 +31,7 @@ test('the financeiro downloads the delinquency report as PDF and Excel', functio
         ->call('downloadExcel')
         ->assertFileDownloaded();
 
-    Excel::assertDownloaded('relatorio-inadimplencia-2026-10-15.xlsx', fn (DelinquentsExport $export): bool => $export->query()->pluck('customers.id')->all() === [$customer->id]);
+    Excel::assertDownloaded('relatorio-inadimplencia-2026-10-15.xlsx', fn (DelinquentsExport $export): bool => $export->query()->pluck('id')->all() === [$customer->id]);
 });
 
 test('the period defaults to the current month and the filters reach the report', function () {

@@ -268,3 +268,16 @@ test('a sale without enrollment fee books no income', function () {
     expect($customer->planChanges()->sole()->enrollment_fee)->toBe('0.00')
         ->and(FinancialEntry::count())->toBe(0);
 });
+
+test('an employee sale has no monthly amount of its own and the invoice joins the company fixed bill', function () {
+    $this->travelTo('2026-10-05');
+    $user = actingAsRole('atendente');
+    $company = Company::factory()->create(['monthly_amount' => '1200.00', 'due_day' => 20]);
+    Card::factory()->inStock()->create(['number' => '000123']);
+
+    $customer = app(CreateCustomer::class)->handle(saleInput(Plan::factory()->create(), ['company_id' => $company->id, 'monthly_amount' => '89,90']), $user);
+
+    expect($customer->refresh()->monthly_amount)->toBe('0.00')
+        ->and($customer->invoices()->sole()->amount)->toBe('0.00')
+        ->and($company->bills()->sole()->amount)->toBe('1200.00');
+});

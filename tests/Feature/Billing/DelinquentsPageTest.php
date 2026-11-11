@@ -1,6 +1,8 @@
 <?php
 
 use App\Enums\CardStatus;
+use App\Models\Company;
+use App\Models\CompanyBill;
 use App\Models\Customer;
 use App\Models\Invoice;
 use Livewire\Livewire;
@@ -37,4 +39,22 @@ test('the atendente gets 403', function () {
 
     $this->get(route('billing.delinquents'))->assertForbidden();
     Livewire::test('pages::billing.delinquents')->assertForbidden();
+});
+
+test('a company with an overdue bill is listed once, linked to its bills, without its employees', function () {
+    actingAsRole('financeiro');
+    $company = Company::factory()->create(['name' => 'Metalúrgica Souza LTDA', 'monthly_amount' => '1200.00', 'phone' => '1133334444']);
+    CompanyBill::factory()->for($company)->create(['reference_month' => '2026-09-01']);
+    foreach (['Funcionário Um', 'Funcionário Dois'] as $name) {
+        Invoice::factory()->for(Customer::factory()->forCompany($company)->withCard()->create(['name' => $name]))->overdue(20)->create(['amount' => '0.00']);
+    }
+
+    $this->get(route('billing.delinquents'))
+        ->assertOk()
+        ->assertSee('0 titulares · 1 empresa · R$ 1.200,00 em atraso')
+        ->assertSee('Metalúrgica Souza LTDA')
+        ->assertSee('2 funcionários em atraso')
+        ->assertSeeHtml('href="'.route('companies.show', ['company' => $company->id, 'tab' => 'faturas']).'"')
+        ->assertDontSee('Funcionário Um')
+        ->assertDontSee('Funcionário Dois');
 });

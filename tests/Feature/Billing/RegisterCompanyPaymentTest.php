@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Billing\IssueInvoice;
 use App\Actions\Billing\RefundPayment;
 use App\Actions\Billing\RegisterCompanyPayment;
 use App\Enums\CardStatus;
@@ -126,4 +127,20 @@ test('the company payment requires billing.pay', function () {
     employeeInvoice($company, '2026-10', '100.00');
 
     expect(fn () => registerCompanyPayment($company, '2026-10', user: actingAsRole('atendente')))->toThrow(AuthorizationException::class);
+});
+
+test('the bill with a fixed amount charges that amount whatever the number of employees', function () {
+    $company = Company::factory()->create(['monthly_amount' => '1200.00', 'due_day' => 20]);
+    foreach (range(1, 3) as $employee) {
+        app(IssueInvoice::class)->handle(Customer::factory()->forCompany($company)->withCard()->create(), today());
+    }
+
+    expect(fn () => registerCompanyPayment($company, '2026-10', ['amount' => '1199.99']))
+        ->toThrow(ValidationException::class, 'O valor recebido não pode ser menor que R$ 1.200,00.');
+
+    $payment = registerCompanyPayment($company, '2026-10', ['amount' => '1200.00']);
+
+    expect($payment->invoices()->count())->toBe(3)
+        ->and($payment->financialEntries()->sole()->amount)->toBe('1200.00')
+        ->and($company->invoices()->get()->every(fn (Invoice $invoice): bool => $invoice->hasStatus(InvoiceStatus::Paid)))->toBeTrue();
 });

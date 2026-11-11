@@ -1,13 +1,13 @@
 <?php
 
-use App\Enums\CardStatus;
 use App\Queries\DelinquentsQuery;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
 /**
- * Delinquents screen (US-8.5): holders with overdue invoices, longest delay
+ * Delinquents screen (US-8.5): individual holders with overdue invoices and
+ * companies with overdue bills (in place of their employees), longest delay
  * first, with a WhatsApp link to charge them and PDF/Excel exports.
  * Requires `billing.view`.
  */
@@ -39,34 +39,42 @@ new class extends Component
 <x-ui.card class="flex flex-col gap-4">
     <div class="flex flex-wrap items-center gap-2.5">
         <span class="flex-1 text-sm text-ink-500">
-            {{ $summary['holders'] }} {{ $summary['holders'] === 1 ? 'titular' : 'titulares' }} · {{ \App\Support\Format::money($summary['amount']) }} em atraso
+            {{ \App\Queries\DelinquentsQuery::summaryLabel($summary) }}
         </span>
         <x-ui.button variant="secondary" :href="route('billing.delinquents.pdf')" target="_blank" rel="noopener">Exportar PDF</x-ui.button>
         <x-ui.button variant="secondary" :href="route('billing.delinquents.excel')">Exportar Excel</x-ui.button>
     </div>
 
     @if ($delinquents->isEmpty())
-        <x-ui.empty-state icon="circle-check" title="Nenhum inadimplente" description="Os titulares com mensalidades em atraso aparecem aqui." />
+        <x-ui.empty-state icon="circle-check" title="Nenhum inadimplente" description="Os titulares com mensalidades e as empresas com faturas em atraso aparecem aqui." />
     @else
-        <x-ui.table :columns="['Titular', 'WhatsApp', 'Faturas', 'Total', 'Maior atraso', 'Cartão']" min-width="min-w-[760px]">
+        <x-ui.table :columns="['Titular / empresa', 'WhatsApp', 'Faturas', 'Total', 'Maior atraso', 'Cartão']" min-width="min-w-[760px]">
             @foreach ($delinquents as $delinquent)
-                @php($cardStatus = $delinquent->card_status_id ? CardStatus::fromId($delinquent->card_status_id) : null)
-                <tr wire:key="delinquent-{{ $delinquent->id }}">
+                <tr wire:key="delinquent-{{ $delinquent->kind }}-{{ $delinquent->id }}">
                     <td>
-                        <a href="{{ route('customers.show', $delinquent->id) }}" wire:navigate class="font-semibold text-ink-800 no-underline">{{ $delinquent->name }}</a>
+                        <a href="{{ $delinquent->url() }}" wire:navigate class="font-semibold text-ink-800 no-underline">{{ $delinquent->name }}</a>
+                        @if ($delinquent->isCompany())
+                            <div class="text-xs text-ink-500">Fatura da empresa</div>
+                        @endif
                     </td>
                     <td>
-                        <a href="{{ \App\Support\Format::whatsappUrl($delinquent->phone) }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 font-semibold text-success-700">
-                            <x-ui.icon name="message-circle" class="size-3.5" />
-                            {{ \App\Support\Format::phone($delinquent->phone) }}
-                        </a>
+                        @if ($delinquent->phone)
+                            <a href="{{ \App\Support\Format::whatsappUrl($delinquent->phone) }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 font-semibold text-success-700">
+                                <x-ui.icon name="message-circle" class="size-3.5" />
+                                {{ \App\Support\Format::phone($delinquent->phone) }}
+                            </a>
+                        @else
+                            —
+                        @endif
                     </td>
-                    <td>{{ $delinquent->overdue_invoices_count }}</td>
-                    <td class="font-semibold text-ink-800">{{ \App\Support\Format::money($delinquent->overdue_amount) }}</td>
-                    <td class="font-semibold text-danger-600">{{ $delinquent->max_days_overdue }} {{ $delinquent->max_days_overdue === 1 ? 'dia' : 'dias' }}</td>
+                    <td>{{ $delinquent->overdueCount }}</td>
+                    <td class="font-semibold text-ink-800">{{ \App\Support\Format::money($delinquent->overdueAmount) }}</td>
+                    <td class="font-semibold text-danger-600">{{ $delinquent->maxDaysOverdue }} {{ $delinquent->maxDaysOverdue === 1 ? 'dia' : 'dias' }}</td>
                     <td>
-                        @if ($cardStatus)
-                            <x-ui.badge :tone="$cardStatus->color()" dot>{{ $cardStatus->label() }}</x-ui.badge>
+                        @if ($delinquent->isCompany())
+                            <x-ui.badge tone="red" dot>{{ $delinquent->situation() }}</x-ui.badge>
+                        @elseif ($delinquent->cardStatus)
+                            <x-ui.badge :tone="$delinquent->cardStatus->color()" dot>{{ $delinquent->cardStatus->label() }}</x-ui.badge>
                         @else
                             <x-ui.badge dot>Sem cartão</x-ui.badge>
                         @endif

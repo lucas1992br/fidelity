@@ -167,9 +167,15 @@ new class extends Component
             </x-ui.field>
 
             <div class="grid grid-cols-[minmax(0,1fr)_120px] gap-3">
-                <x-ui.field label="Valor mensal (R$)" for="reenroll-monthly-amount" error="monthlyAmount">
-                    <x-ui.input id="reenroll-monthly-amount" wire:model="monthlyAmount" error="monthlyAmount" mask="money" placeholder="0,00" />
-                </x-ui.field>
+                @if ($this->customer->isEmployee())
+                    <x-ui.field label="Valor mensal" for="reenroll-company-amount" hint="Funcionário não paga mensalidade própria.">
+                        <x-ui.input id="reenroll-company-amount" value="Valor fixo da empresa" disabled />
+                    </x-ui.field>
+                @else
+                    <x-ui.field label="Valor mensal (R$)" for="reenroll-monthly-amount" error="monthlyAmount">
+                        <x-ui.input id="reenroll-monthly-amount" wire:model="monthlyAmount" error="monthlyAmount" mask="money" placeholder="0,00" />
+                    </x-ui.field>
+                @endif
                 <x-ui.field label="Vencimento" for="reenroll-due-day" error="dueDay">
                     <x-ui.input id="reenroll-due-day" type="number" min="1" max="28" wire:model="dueDay" error="dueDay" :disabled="$this->customer->isEmployee()" />
                 </x-ui.field>

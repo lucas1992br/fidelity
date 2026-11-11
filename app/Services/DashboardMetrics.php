@@ -7,6 +7,7 @@ use App\Enums\EntryStatus;
 use App\Enums\EntryType;
 use App\Enums\InvoiceStatus;
 use App\Models\Card;
+use App\Models\CompanyBill;
 use App\Models\Customer;
 use App\Models\Dependent;
 use App\Models\FinancialEntry;
@@ -14,6 +15,7 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Queries\DelinquentsQuery;
 use App\Settings\ClinicSettings;
+use App\Support\Billing\DelinquentRow;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -169,21 +171,27 @@ class DashboardMetrics
     }
 
     /**
-     * Holders with the longest delays (DelinquentsQuery order).
+     * Holders and companies with the longest delays (DelinquentsQuery order).
      *
-     * @return Collection<int, Customer>
+     * @return Collection<int, DelinquentRow>
      */
     public function topDelinquents(int $limit = 5): Collection
     {
         return $this->delinquents->get($limit);
     }
 
+    /**
+     * Invoices in the given statuses plus the fixed amount of the company
+     * bills in them (employee invoices are zero).
+     */
     protected function invoicesAmount(InvoiceStatus ...$statuses): string
     {
-        return (string) Invoice::query()
+        $invoices = (string) Invoice::query()
             ->whereIn('invoice_status_id', array_map(fn (InvoiceStatus $status): int => $status->id(), $statuses))
             ->toBase()
             ->selectRaw('coalesce(sum(amount), 0)::numeric(14, 2) as amount')
             ->value('amount');
+
+        return bcadd($invoices, CompanyBill::amountWithInvoiceStatus(...$statuses), 2);
     }
 }

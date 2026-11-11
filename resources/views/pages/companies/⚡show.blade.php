@@ -6,6 +6,7 @@ use App\Enums\CardStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\PaymentMethod as PaymentMethodEnum;
 use App\Models\Company;
+use App\Models\CompanyBill;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Payment;
@@ -23,9 +24,10 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
- * Company sheet: header with the company data, the Funcionários tab (each
- * employee with card, dependents and monthly amount) and the Faturas tab with
- * one consolidated bill per reference month (sum of the employees' invoices).
+ * Company sheet: header with the company data and its fixed monthly amount,
+ * the Funcionários tab (each employee with card and dependents) and the
+ * Faturas tab with one consolidated bill per reference month (the fixed
+ * amount frozen on the month, whatever the number of employees).
  * A bill is paid at once with a single receipt (`RegisterCompanyPayment`,
  * `billing.pay`) and refunded with `RefundPayment` (`billing.refund`).
  * Requires `customers.view`; amounts and bills require `billing.view`.
@@ -128,11 +130,13 @@ new class extends Component
             ->get()
             ->groupBy(fn (Payment $payment): string => $payment->invoice->reference_month->toDateString());
 
+        $companyBills = $this->company->bills()->get()->keyBy(fn (CompanyBill $bill): string => $bill->reference_month->toDateString());
+
         return $this->company->invoices()
             ->orderByDesc('reference_month')
             ->get()
             ->groupBy(fn (Invoice $invoice): string => $invoice->reference_month->toDateString())
-            ->map(function (Collection $invoices, string $month) use ($payments): array {
+            ->map(function (Collection $invoices, string $month) use ($payments, $companyBills): array {
                 $billed = $invoices->reject(fn (Invoice $invoice): bool => $invoice->hasStatus(InvoiceStatus::Cancelled));
                 $payable = $invoices->filter(fn (Invoice $invoice): bool => InvoiceStatus::fromId($invoice->invoice_status_id)->isPayable());
                 $daysOverdue = (int) $payable->max(fn (Invoice $invoice): int => $invoice->days_overdue);
@@ -141,8 +145,8 @@ new class extends Component
                     'month' => CarbonImmutable::parse($month),
                     'due_date' => CarbonImmutable::instance(($payable->isNotEmpty() ? $payable : $invoices)->min('due_date')),
                     'employees' => $billed->count(),
-                    'total' => self::sum($billed),
-                    'payable' => self::sum($payable),
+                    'total' => CompanyBill::totalOf($companyBills->get($month), $billed),
+                    'payable' => CompanyBill::totalOf($companyBills->get($month), $payable),
                     'status' => match (true) {
                         $payable->isEmpty() && $billed->isEmpty() => InvoiceStatus::Cancelled,
                         $payable->isEmpty() => InvoiceStatus::Paid,
@@ -154,14 +158,6 @@ new class extends Component
                 ];
             })
             ->values();
-    }
-
-    /**
-     * @param  Collection<int, Invoice>  $invoices
-     */
-    protected static function sum(Collection $invoices): string
-    {
-        return $invoices->reduce(fn (string $sum, Invoice $invoice): string => bcadd($sum, $invoice->amount, 2), '0.00');
     }
 
     /**
@@ -412,7 +408,7 @@ new class extends Component
             </x-ui.card>
             <x-ui.card class="flex flex-col gap-1">
                 <span class="text-xs font-semibold tracking-[0.08em] text-ink-500 uppercase">Fatura mensal</span>
-                <span class="font-display text-2xl font-bold text-ink-800">{{ \App\Support\Format::money($employeesInForce->reduce(fn (string $sum, $employee): string => bcadd($sum, $employee->monthly_amount, 2), '0.00')) }}</span>
+                <span class="font-display text-2xl font-bold text-ink-800">{{ \App\Support\Format::money($company->monthly_amount) }}</span>
             </x-ui.card>
         </div>
     @endif
@@ -423,7 +419,7 @@ new class extends Component
         @case('faturas')
             <x-ui.card class="flex flex-col gap-4" wire:key="tab-faturas">
                 @if ($this->bills->isEmpty())
-                    <x-ui.empty-state icon="receipt" title="Nenhuma fatura" description="As mensalidades dos funcionários são somadas aqui, uma fatura por mês." />
+                    <x-ui.empty-state icon="receipt" title="Nenhuma fatura" description="Uma fatura por mês, no valor fixo da empresa." />
                 @else
                     @php($canPay = auth()->user()->can('billing.pay'))
                     @php($canRefund = auth()->user()->can('billing.refund'))
@@ -464,7 +460,7 @@ new class extends Component
                 @if ($this->employees->isEmpty())
                     <x-ui.empty-state icon="users" title="Nenhum funcionário" description="Use “Novo funcionário” para vender o cartão a um funcionário da empresa." />
                 @else
-                    <x-ui.table :columns="array_values(array_filter(['Cartão', 'Nome', 'CPF', 'Plano', 'Dependentes', $canViewAmounts ? 'Valor mensal' : null, 'Status']))" min-width="min-w-[820px]">
+                    <x-ui.table :columns="['Cartão', 'Nome', 'CPF', 'Plano', 'Dependentes', 'Status']" min-width="min-w-[820px]">
                         @foreach ($this->employees as $employee)
                             @php($card = $employee->currentCard ?? $employee->lastCard)
                             @php($cardStatus = $card ? \App\Enums\CardStatus::fromId($card->card_status_id) : null)
@@ -480,9 +476,6 @@ new class extends Component
                                 <td class="font-mono text-[13px] text-ink-500">{{ $employee->masked_cpf }}</td>
                                 <td>{{ $employee->plan->name }}</td>
                                 <td>{{ $employee->active_dependents_count === 0 ? '—' : $employee->active_dependents_count }}</td>
-                                @if ($canViewAmounts)
-                                    <td class="font-semibold text-ink-800">{{ \App\Support\Format::money($employee->monthly_amount) }}</td>
-                                @endif
                                 <td>
                                     @if ($cardStatus)
                                         <x-ui.badge :tone="$cardStatus->color()" dot>{{ $cardStatus->label() }}</x-ui.badge>
