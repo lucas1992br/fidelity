@@ -98,19 +98,19 @@ new class extends Component
             </div>
             @forelse ($delinquents as $delinquent)
                 <a
-                    href="{{ route('customers.show', $delinquent) }}"
+                    href="{{ $delinquent->url() }}"
                     wire:navigate
-                    wire:key="late-{{ $delinquent->id }}"
+                    wire:key="late-{{ $delinquent->kind }}-{{ $delinquent->id }}"
                     class="flex items-center gap-3 rounded-sm border-t border-ink-100 px-2 py-2.5 no-underline hover:bg-ink-50 hover:no-underline"
                 >
                     <x-ui.avatar :initials="Format::initials($delinquent->name)" size="sm" tone="gray" />
                     <div class="flex min-w-0 flex-1 flex-col">
                         <span class="text-sm font-semibold text-ink-800">{{ $delinquent->name }}</span>
-                        <span class="text-xs text-ink-500">{{ $delinquent->overdue_invoices_count }} {{ $delinquent->overdue_invoices_count === 1 ? 'fatura' : 'faturas' }} · {{ $delinquent->card_status_id ? 'cartão '.mb_strtolower(\App\Enums\CardStatus::fromId($delinquent->card_status_id)->label()) : 'sem cartão' }}</span>
+                        <span class="text-xs text-ink-500">{{ $delinquent->overdueCount }} {{ $delinquent->overdueCount === 1 ? 'fatura' : 'faturas' }} · {{ $delinquent->isCompany() ? 'empresa, '.$delinquent->situation() : ($delinquent->cardStatus ? 'cartão '.mb_strtolower($delinquent->cardStatus->label()) : 'sem cartão') }}</span>
                     </div>
                     <div class="flex flex-col items-end gap-0.5">
-                        <span class="text-sm font-bold text-ink-800">{{ Format::money($delinquent->overdue_amount) }}</span>
-                        <span class="text-xs font-semibold text-danger-600">{{ $delinquent->max_days_overdue }} {{ $delinquent->max_days_overdue === 1 ? 'dia' : 'dias' }}</span>
+                        <span class="text-sm font-bold text-ink-800">{{ Format::money($delinquent->overdueAmount) }}</span>
+                        <span class="text-xs font-semibold text-danger-600">{{ $delinquent->maxDaysOverdue }} {{ $delinquent->maxDaysOverdue === 1 ? 'dia' : 'dias' }}</span>
                     </div>
                 </a>
             @empty

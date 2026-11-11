@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Billing\IssueInvoice;
 use App\Enums\InvoiceStatus;
 use App\Models\Company;
 use App\Models\Customer;
@@ -12,10 +13,10 @@ beforeEach(function () {
     $this->withoutVite();
 });
 
-test('the list shows each company with its employees in force and finds it by CNPJ', function () {
+test('the list shows each company with its employees in force and fixed amount and finds it by CNPJ', function () {
     actingAsRole('financeiro');
-    $company = Company::factory()->create(['name' => 'Metalúrgica Souza LTDA', 'cnpj' => '11222333000181']);
-    Customer::factory()->count(2)->forCompany($company)->withCard()->create(['monthly_amount' => '100.00']);
+    $company = Company::factory()->create(['name' => 'Metalúrgica Souza LTDA', 'cnpj' => '11222333000181', 'monthly_amount' => '200.00']);
+    Customer::factory()->count(2)->forCompany($company)->withCard()->create(['monthly_amount' => '0.00']);
     Company::factory()->create(['name' => 'Padaria Central LTDA']);
 
     Livewire::test('pages::companies.index')
@@ -34,9 +35,12 @@ test('a new company created in the modal opens its sheet', function () {
         ->set('cnpj', '11.222.333/0001-81')
         ->set('phone', '(11) 3333-4444')
         ->set('due_day', 15)
+        ->set('monthly_amount', '1.500,00')
         ->call('save')
         ->assertHasNoErrors()
         ->assertRedirect(route('companies.show', Company::sole()));
+
+    expect(Company::sole()->monthly_amount)->toBe('1500.00');
 });
 
 test('the bills tab sums the employee invoices of each month', function () {
@@ -100,4 +104,19 @@ test('choosing a plan in the sale suggests its price as the monthly amount', fun
     Livewire::test('pages::sales.create')
         ->set('customer.plan_id', $plan->id)
         ->assertSet('customer.monthly_amount', '1.234,50');
+});
+
+test('the bills tab shows the fixed amount of the month whatever the number of employees', function () {
+    $this->travelTo('2026-10-05');
+    actingAsRole('financeiro');
+    $company = Company::factory()->create(['monthly_amount' => '1200.00']);
+    foreach (range(1, 3) as $employee) {
+        app(IssueInvoice::class)->handle(Customer::factory()->forCompany($company)->withCard()->create(), today());
+    }
+
+    Livewire::test('pages::companies.show', ['company' => $company])
+        ->set('tab', 'faturas')
+        ->assertSee('10/2026')
+        ->assertSee('R$ 1.200,00')
+        ->assertDontSee('R$ 0,00');
 });

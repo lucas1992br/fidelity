@@ -34,6 +34,11 @@ new class extends Component
 
     public int|string $due_day = '';
 
+    /**
+     * Fixed monthly bill typed as pt-BR money ("1.234,56").
+     */
+    public string $monthly_amount = '';
+
     public string $notes = '';
 
     public bool $is_active = true;
@@ -57,6 +62,7 @@ new class extends Component
                 'email' => (string) $found->email,
                 'phone' => $found->phone,
                 'notes' => (string) $found->notes,
+                'monthly_amount' => number_format((float) $found->monthly_amount, 2, ',', '.'),
             ]);
         }
 
@@ -68,7 +74,7 @@ new class extends Component
         $this->authorize('customers.update');
 
         $company = $saveCompany->handle(
-            $this->only('name', 'trade_name', 'cnpj', 'contact_name', 'email', 'phone', 'due_day', 'notes', 'is_active'),
+            $this->only('name', 'trade_name', 'cnpj', 'contact_name', 'email', 'phone', 'due_day', 'monthly_amount', 'notes', 'is_active'),
             auth()->user(),
             $this->companyId ? Company::query()->findOrFail($this->companyId) : null,
         );
@@ -93,7 +99,7 @@ new class extends Component
 
     protected function resetForm(): void
     {
-        $this->reset('companyId', 'name', 'trade_name', 'cnpj', 'contact_name', 'email', 'phone', 'due_day', 'notes', 'is_active');
+        $this->reset('companyId', 'name', 'trade_name', 'cnpj', 'contact_name', 'email', 'phone', 'due_day', 'monthly_amount', 'notes', 'is_active');
         $this->resetValidation();
     }
 };
@@ -101,7 +107,7 @@ new class extends Component
 
 <div>
     @if ($isOpen)
-        <x-ui.modal :title="$companyId ? 'Editar empresa' : 'Nova empresa'" subtitle="Os funcionários vencem no dia da empresa e entram na fatura única dela." close="close">
+        <x-ui.modal :title="$companyId ? 'Editar empresa' : 'Nova empresa'" subtitle="Os funcionários vencem no dia da empresa, e a empresa paga um valor fixo por mês, independente da quantidade de funcionários." close="close">
             <x-ui.field label="Razão social" for="company-name" error="name">
                 <x-ui.input id="company-name" wire:model="name" error="name" autocomplete="off" />
             </x-ui.field>
@@ -133,6 +139,10 @@ new class extends Component
                 </x-ui.field>
             </div>
 
+            <x-ui.field label="Valor fixo mensal (R$)" for="company-monthly-amount" error="monthly_amount" hint="Valor total da fatura da empresa por mês, independente da quantidade de funcionários.">
+                <x-ui.input id="company-monthly-amount" wire:model="monthly_amount" error="monthly_amount" mask="money" placeholder="0,00" />
+            </x-ui.field>
+
             <x-ui.field label="Observações" for="company-notes" error="notes">
                 <x-ui.textarea id="company-notes" wire:model="notes" error="notes" rows="2" placeholder="Opcional" />
             </x-ui.field>
@@ -143,7 +153,7 @@ new class extends Component
             </label>
 
             @if ($companyId)
-                <span class="text-xs text-ink-500">Mudar o vencimento muda o dia de todos os funcionários a partir da próxima mensalidade.</span>
+                <span class="text-xs text-ink-500">Mudar o vencimento muda o dia de todos os funcionários a partir da próxima mensalidade. Mudar o valor fixo vale para as faturas ainda não pagas.</span>
             @endif
 
             <x-slot:actions>

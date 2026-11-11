@@ -28,7 +28,7 @@ use Illuminate\Validation\ValidationException;
  *
  * The monthly amount is typed at the sale; the plan price is only the
  * suggestion, used when no amount is given. A holder sold as a company employee follows the company's due
- * day, and the invoices join the company's consolidated bill.
+ * day and has no monthly amount of their own: the company pays its fixed amount.
  *
  * The enrollment fee is also typed at the sale (the plan's fee when none is
  * given). It is recorded on the sign-up row with the current commission
@@ -89,6 +89,7 @@ class CreateCustomer
                 }
 
                 $validated['due_day'] = $company->due_day;
+                $validated['monthly_amount'] = '0.00';
             }
 
             $customer = Customer::create([

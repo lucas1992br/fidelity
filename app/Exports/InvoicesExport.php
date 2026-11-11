@@ -2,11 +2,10 @@
 
 namespace App\Exports;
 
-use App\Enums\InvoiceStatus;
 use App\Exports\Concerns\WithReportHeader;
-use App\Models\Invoice;
 use App\Reports\InvoicesReport;
-use Illuminate\Database\Eloquent\Builder;
+use App\Support\Billing\BillingRow;
+use Illuminate\Database\Query\Builder;
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithColumnFormatting;
@@ -17,7 +16,7 @@ use PhpOffice\PhpSpreadsheet\Shared\Date;
 /**
  * Invoices report spreadsheet: the rows of InvoicesReport.
  *
- * @implements WithMapping<Invoice>
+ * @implements WithMapping<object>
  */
 class InvoicesExport implements FromQuery, WithColumnFormatting, WithHeadings, WithMapping
 {
@@ -25,9 +24,6 @@ class InvoicesExport implements FromQuery, WithColumnFormatting, WithHeadings, W
 
     public function __construct(public InvoicesReport $report) {}
 
-    /**
-     * @return Builder<Invoice>
-     */
     public function query(): Builder
     {
         return $this->report->query();
@@ -38,24 +34,26 @@ class InvoicesExport implements FromQuery, WithColumnFormatting, WithHeadings, W
      */
     public function headings(): array
     {
-        return $this->reportHeadings($this->report, ['Titular', 'Cartão', 'Plano', 'Referência', 'Vencimento', 'Status', 'Valor', 'Pago em']);
+        return $this->reportHeadings($this->report, ['Titular / empresa', 'Cartão', 'Plano', 'Referência', 'Vencimento', 'Status', 'Valor', 'Pago em']);
     }
 
     /**
-     * @param  Invoice  $row
+     * @param  object  $row
      * @return list<string|float|null>
      */
     public function map($row): array
     {
+        $line = BillingRow::fromRecord($row);
+
         return [
-            $row->customer->name,
-            ($row->customer->currentCard ?? $row->customer->lastCard)?->number,
-            $row->plan->name,
-            $row->reference_month->format('m/Y'),
-            Date::dateTimeToExcel($row->due_date),
-            InvoiceStatus::fromId($row->invoice_status_id)->label(),
-            (float) $row->amount,
-            $row->paid_at ? Date::dateTimeToExcel($row->paid_at) : null,
+            $line->isCompanyBill() ? "{$line->name} (empresa, {$line->employees} funcionários)" : $line->name,
+            $line->cardNumber,
+            $line->planName ?? 'Fatura da empresa',
+            $line->referenceMonth->format('m/Y'),
+            Date::dateTimeToExcel($line->dueDate),
+            $line->status->label(),
+            (float) $line->amount,
+            $line->paidAt ? Date::dateTimeToExcel($line->paidAt) : null,
         ];
     }
 

@@ -71,7 +71,7 @@ class ReenrollCustomer
 
             $fromPlan = $customer->plan;
             $fromAmount = $customer->monthly_amount;
-            $validated['monthly_amount'] ??= $plan->price;
+            $validated['monthly_amount'] = $customer->isEmployee() ? '0.00' : ($validated['monthly_amount'] ?? $plan->price);
 
             $customer->update([
                 'plan_id' => $plan->id,

@@ -18,8 +18,8 @@ beforeEach(function () {
     $this->until = CarbonImmutable::parse('2026-10-31');
 });
 
-test('the companies report totals the employees in force, their dependents and the monthly bill', function () {
-    $company = Company::factory()->create(['name' => 'Metalúrgica Souza LTDA']);
+test('the companies report totals the employees in force, their dependents and the fixed monthly bill', function () {
+    $company = Company::factory()->create(['name' => 'Metalúrgica Souza LTDA', 'monthly_amount' => '150.00']);
     $employee = Customer::factory()->forCompany($company)->withCard()->create(['monthly_amount' => '100.00']);
     Customer::factory()->forCompany($company)->withCard()->create(['monthly_amount' => '50.00']);
     Customer::factory()->forCompany($company)->create(['monthly_amount' => '999.00']);

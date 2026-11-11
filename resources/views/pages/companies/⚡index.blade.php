@@ -9,7 +9,7 @@ use Livewire\WithPagination;
 
 /**
  * Company list: paginated companies with the employees in force, the lives
- * covered (employees plus their active dependents) and the monthly total,
+ * covered (employees plus their active dependents) and the fixed monthly amount,
  * with a free-text search kept in the URL and the "Nova empresa" modal.
  * Requires `customers.view`; creating requires `customers.update`.
  */
@@ -37,7 +37,6 @@ new class extends Component
         return $this->view([
             'companies' => Company::query()
                 ->withCount(['employees as employees_count' => $inForce])
-                ->withSum(['employees as monthly_total' => $inForce], 'monthly_amount')
                 ->withCount(['employees as dependents_count' => fn (Builder $query) => $query
                     ->whereHas('currentCard')
                     ->join('dependents', 'dependents.customer_id', '=', 'customers.id')
@@ -70,7 +69,7 @@ new class extends Component
         <x-ui.empty-state title="Nenhuma empresa encontrada" description="Cadastre uma empresa para vender cartões aos funcionários com fatura única." />
     @else
         @php($canViewAmounts = auth()->user()->can('billing.view'))
-        <x-ui.table :columns="array_values(array_filter(['Empresa', 'CNPJ', 'Funcionários', 'Vidas', $canViewAmounts ? 'Total mensal' : null, 'Vencimento', 'Status']))" min-width="min-w-[820px]">
+        <x-ui.table :columns="array_values(array_filter(['Empresa', 'CNPJ', 'Funcionários', 'Vidas', $canViewAmounts ? 'Valor fixo mensal' : null, 'Vencimento', 'Status']))" min-width="min-w-[820px]">
             @foreach ($companies as $company)
                 <tr
                     wire:key="company-{{ $company->id }}"
@@ -87,7 +86,7 @@ new class extends Component
                     <td>{{ $company->employees_count }}</td>
                     <td>{{ $company->employees_count + $company->dependents_count }}</td>
                     @if ($canViewAmounts)
-                        <td class="font-semibold text-ink-800">{{ \App\Support\Format::money($company->monthly_total ?? 0) }}</td>
+                        <td class="font-semibold text-ink-800">{{ \App\Support\Format::money($company->monthly_amount) }}</td>
                     @endif
                     <td>Dia {{ $company->due_day }}</td>
                     <td><x-ui.badge :tone="$company->is_active ? 'green' : 'gray'" dot>{{ $company->is_active ? 'Ativa' : 'Inativa' }}</x-ui.badge></td>

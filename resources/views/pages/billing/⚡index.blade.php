@@ -3,6 +3,7 @@
 use App\Enums\InvoiceStatus;
 use App\Models\Plan;
 use App\Queries\InvoicesQuery;
+use App\Support\Billing\BillingRow;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
@@ -11,9 +12,12 @@ use Livewire\WithPagination;
 
 /**
  * Invoices screen (US-8.4): summary cards and a paginated table of the
- * invoices filtered by period (reference month or due date interval),
- * status, plan and holder, all kept in the URL. Requires `billing.view`;
- * "Registrar pagamento" opens the payment modal (`billing.pay`).
+ * individual holders' invoices and the company bills (one line per company
+ * and month, in place of the employees), filtered by period (reference
+ * month or due date interval), status, plan and holder or company, all kept
+ * in the URL. Requires `billing.view`; "Registrar pagamento" opens the
+ * payment modal of a holder invoice, or the company sheet of a company bill
+ * (`billing.pay`).
  */
 new class extends Component
 {
@@ -95,7 +99,7 @@ new class extends Component
         $query = $this->invoicesQuery();
 
         return $this->view([
-            'invoices' => $query->ordered()->paginate(20),
+            'invoices' => $query->rows()->paginate(20)->through(fn (object $record): BillingRow => BillingRow::fromRecord($record)),
             'summary' => $query->summary(),
             'statusFilters' => [
                 '' => 'Todas',
@@ -134,8 +138,8 @@ new class extends Component
         <div class="flex flex-wrap items-center gap-2.5">
             <x-ui.input
                 wire:model.live.debounce.300ms="search"
-                placeholder="Cliente: nome, CPF ou cartão"
-                aria-label="Buscar cliente"
+                placeholder="Cliente (nome, CPF ou cartão) ou empresa (nome ou CNPJ)"
+                aria-label="Buscar cliente ou empresa"
                 class="min-w-[220px] flex-1"
             />
             <div class="w-48">
@@ -169,32 +173,37 @@ new class extends Component
             </x-ui.empty-state>
         @else
             <x-ui.table :columns="['Cliente', 'Cartão', 'Referência', 'Vencimento', 'Valor', 'Status', '>Ações']" min-width="min-w-[820px]">
-                @foreach ($invoices as $invoice)
-                    @php($invoiceStatus = InvoiceStatus::fromId($invoice->invoice_status_id))
-                    @php($daysOverdue = $invoice->days_overdue)
-                    @php($card = $invoice->customer->currentCard ?? $invoice->customer->lastCard)
-                    <tr wire:key="invoice-{{ $invoice->id }}">
+                @foreach ($invoices as $row)
+                    @php($daysOverdue = $row->daysOverdue())
+                    <tr wire:key="{{ $row->kind }}-{{ $row->id }}-{{ $row->referenceMonth->format('Y-m') }}">
                         <td>
-                            <a href="{{ route('customers.show', $invoice->customer) }}" wire:navigate class="font-semibold text-ink-800 no-underline">{{ $invoice->customer->name }}</a>
+                            @if ($row->isCompanyBill())
+                                <a href="{{ route('companies.show', ['company' => $row->companyId, 'tab' => 'faturas']) }}" wire:navigate class="font-semibold text-ink-800 no-underline">{{ $row->name }}</a>
+                                <div class="text-xs text-ink-500">Fatura da empresa · {{ $row->employees }} {{ $row->employees === 1 ? 'funcionário' : 'funcionários' }}</div>
+                            @else
+                                <a href="{{ route('customers.show', $row->customerId) }}" wire:navigate class="font-semibold text-ink-800 no-underline">{{ $row->name }}</a>
+                            @endif
                         </td>
-                        <td class="font-mono text-[13px]">{{ $card?->number ?? '—' }}</td>
-                        <td>{{ $invoice->reference_month->format('m/Y') }}</td>
-                        <td>{{ \App\Support\Format::date($invoice->due_date) }}</td>
-                        <td class="font-semibold text-ink-800">{{ \App\Support\Format::money($invoice->amount) }}</td>
+                        <td class="font-mono text-[13px]">{{ $row->cardNumber ?? '—' }}</td>
+                        <td>{{ $row->referenceMonth->format('m/Y') }}</td>
+                        <td>{{ \App\Support\Format::date($row->dueDate) }}</td>
+                        <td class="font-semibold text-ink-800">{{ \App\Support\Format::money($row->amount) }}</td>
                         <td>
                             @if ($daysOverdue > 0)
                                 <x-ui.badge tone="red">Em atraso · {{ $daysOverdue }} {{ $daysOverdue === 1 ? 'dia' : 'dias' }}</x-ui.badge>
                             @else
-                                <x-ui.badge :tone="$invoiceStatus->color()">{{ $invoiceStatus->label() }}</x-ui.badge>
+                                <x-ui.badge :tone="$row->status->color()">{{ $row->status->label() }}</x-ui.badge>
                             @endif
                         </td>
                         <td class="text-right whitespace-nowrap">
-                            @if ($invoice->isCompanyBilled() && $invoiceStatus->isPayable())
-                                <x-ui.button variant="link" size="sm" :href="route('companies.show', $invoice->company_id)" wire:navigate>Fatura da empresa</x-ui.button>
-                            @elseif ($canPay && $invoiceStatus->isPayable())
-                                <x-ui.button variant="soft" size="sm" x-on:click="$dispatch('open-payment', { invoice: {{ $invoice->id }} })">Registrar pagamento</x-ui.button>
-                            @elseif ($invoiceStatus === InvoiceStatus::Paid && $invoice->activePayment)
-                                <x-ui.button variant="link" size="sm" :href="route('receipts.show', $invoice->activePayment)" target="_blank" rel="noopener">Recibo</x-ui.button>
+                            @if ($canPay && $row->status->isPayable())
+                                @if ($row->isCompanyBill())
+                                    <x-ui.button variant="soft" size="sm" :href="route('companies.show', ['company' => $row->companyId, 'tab' => 'faturas'])" wire:navigate>Registrar pagamento</x-ui.button>
+                                @else
+                                    <x-ui.button variant="soft" size="sm" x-on:click="$dispatch('open-payment', { invoice: {{ $row->id }} })">Registrar pagamento</x-ui.button>
+                                @endif
+                            @elseif ($row->status === InvoiceStatus::Paid && $row->paymentId)
+                                <x-ui.button variant="link" size="sm" :href="route('receipts.show', $row->paymentId)" target="_blank" rel="noopener">Recibo</x-ui.button>
                             @endif
                         </td>
                     </tr>

@@ -2,7 +2,9 @@
 
 use App\Actions\Companies\SaveCompany;
 use App\Models\Company;
+use App\Models\CompanyBill;
 use App\Models\Customer;
+use App\Models\Invoice;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Validation\ValidationException;
 
@@ -20,6 +22,7 @@ function companyInput(array $overrides = []): array
         'email' => '',
         'phone' => '(11) 3333-4444',
         'due_day' => 15,
+        'monthly_amount' => '1.500,00',
         'notes' => '',
         'is_active' => true,
         ...$overrides,
@@ -34,7 +37,8 @@ test('a new company is saved with the CNPJ and phone as digits and empty fields 
         ->and($company->phone)->toBe('1133334444')
         ->and($company->trade_name)->toBeNull()
         ->and($company->email)->toBeNull()
-        ->and($company->due_day)->toBe(15);
+        ->and($company->due_day)->toBe(15)
+        ->and($company->monthly_amount)->toBe('1500.00');
 });
 
 test('an invalid or duplicated CNPJ is rejected', function (string $cnpj, string $message) {
@@ -64,4 +68,31 @@ test('saving a company requires customers.update', function () {
         ->toThrow(AuthorizationException::class);
 
     expect(Company::count())->toBe(0);
+});
+
+test('a fixed amount that is missing or not above zero is rejected', function (?string $amount, string $message) {
+    expect(fn () => app(SaveCompany::class)->handle(companyInput(['monthly_amount' => $amount]), actingAsRole('financeiro')))
+        ->toThrow(ValidationException::class, $message);
+
+    expect(Company::count())->toBe(0);
+})->with([
+    'missing' => [null, 'O campo valor fixo mensal é obrigatório.'],
+    'zero' => ['0,00', 'O valor fixo mensal deve ser maior que zero.'],
+    'negative' => ['-10,00', 'O valor fixo mensal deve ser maior que zero, com até 2 casas decimais.'],
+]);
+
+test('a new fixed amount applies to the unpaid bills and the paid ones keep theirs', function () {
+    $user = actingAsRole('financeiro');
+    $company = Company::factory()->create(['monthly_amount' => '1000.00']);
+    $employee = Customer::factory()->forCompany($company)->withCard()->create();
+    $paidBill = CompanyBill::factory()->for($company)->create(['reference_month' => '2026-09-01']);
+    Invoice::factory()->for($employee)->forMonth('2026-09')->paid()->create(['amount' => '0.00']);
+    $openBill = CompanyBill::factory()->for($company)->create(['reference_month' => '2026-10-01']);
+    Invoice::factory()->for($employee)->forMonth('2026-10')->create(['amount' => '0.00']);
+
+    app(SaveCompany::class)->handle(companyInput(['cnpj' => $company->cnpj, 'monthly_amount' => '1.250,00']), $user, $company);
+
+    expect($company->refresh()->monthly_amount)->toBe('1250.00')
+        ->and($openBill->refresh()->amount)->toBe('1250.00')
+        ->and($paidBill->refresh()->amount)->toBe('1000.00');
 });

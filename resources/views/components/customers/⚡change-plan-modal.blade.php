@@ -164,9 +164,13 @@ new class extends Component
                 @enderror
             </div>
 
-            <x-ui.field label="Valor mensal (R$)" for="change-plan-monthly-amount" error="monthlyAmount" hint="Valor cobrado do titular; o preço do plano é só uma sugestão." class="max-w-60">
-                <x-ui.input id="change-plan-monthly-amount" wire:model="monthlyAmount" error="monthlyAmount" mask="money" placeholder="0,00" />
-            </x-ui.field>
+            @if ($this->customer->isEmployee())
+                <span class="text-xs text-ink-500">Funcionário de empresa: não tem valor mensal próprio, a empresa paga o valor fixo dela.</span>
+            @else
+                <x-ui.field label="Valor mensal (R$)" for="change-plan-monthly-amount" error="monthlyAmount" hint="Valor cobrado do titular; o preço do plano é só uma sugestão." class="max-w-60">
+                    <x-ui.input id="change-plan-monthly-amount" wire:model="monthlyAmount" error="monthlyAmount" mask="money" placeholder="0,00" />
+                </x-ui.field>
+            @endif
 
             @if ($this->dependentsBlockMessage)
                 <x-ui.callout tone="warning" wire:key="change-plan-dependents-limit">{{ $this->dependentsBlockMessage }}</x-ui.callout>

@@ -3,6 +3,7 @@
 use App\Enums\EntryStatus;
 use App\Enums\EntryType;
 use App\Enums\InvoiceStatus;
+use App\Models\CompanyBill;
 use App\Models\FinancialEntry;
 use App\Models\Invoice;
 use Illuminate\Contracts\View\View;
@@ -91,7 +92,11 @@ new class extends Component
             'receivables' => $this->receivables(),
             'totals' => [
                 'entries' => (string) $this->pendingIncomes()->toBase()->selectRaw('coalesce(sum(amount), 0)::numeric(12, 2) as total')->value('total'),
-                'invoices' => (string) Invoice::query()->payable()->toBase()->selectRaw('coalesce(sum(amount), 0)::numeric(12, 2) as total')->value('total'),
+                'invoices' => bcadd(
+                    (string) Invoice::query()->payable()->toBase()->selectRaw('coalesce(sum(amount), 0)::numeric(12, 2) as total')->value('total'),
+                    CompanyBill::amountWithInvoiceStatus(InvoiceStatus::Open, InvoiceStatus::Overdue),
+                    2,
+                ),
             ],
             'canManage' => auth()->user()->can('finance.manage'),
         ]);

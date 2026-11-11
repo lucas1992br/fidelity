@@ -51,34 +51,34 @@
     </table>
 
     <div class="summary">
-        {{ $summary['holders'] }} {{ $summary['holders'] === 1 ? 'titular' : 'titulares' }} · {{ \App\Support\Format::money($summary['amount']) }} em atraso
+        {{ \App\Queries\DelinquentsQuery::summaryLabel($summary) }}
     </div>
 
     @if ($delinquents->isEmpty())
-        <div class="empty">Nenhum titular com mensalidades em atraso.</div>
+        <div class="empty">Nenhum titular ou empresa com faturas em atraso.</div>
     @else
         <table class="rows">
             <thead>
                 <tr>
-                    <th>Titular</th>
+                    <th>Titular / empresa</th>
                     <th>Telefone</th>
                     <th class="number">Faturas</th>
                     <th class="number">Total</th>
                     <th>Vencimento mais antigo</th>
                     <th class="number">Maior atraso</th>
-                    <th>Cartão</th>
+                    <th>Cartão / situação</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach ($delinquents as $delinquent)
                     <tr>
-                        <td class="strong">{{ $delinquent->name }}</td>
-                        <td>{{ \App\Support\Format::phone($delinquent->phone) }}</td>
-                        <td class="number">{{ $delinquent->overdue_invoices_count }}</td>
-                        <td class="number strong">{{ \App\Support\Format::money($delinquent->overdue_amount) }}</td>
-                        <td>{{ \App\Support\Format::date($delinquent->oldest_due_date) }}</td>
-                        <td class="number late">{{ $delinquent->max_days_overdue }} {{ $delinquent->max_days_overdue === 1 ? 'dia' : 'dias' }}</td>
-                        <td>{{ $delinquent->card_status_id ? \App\Enums\CardStatus::fromId($delinquent->card_status_id)->label() : 'Sem cartão' }}</td>
+                        <td class="strong">{{ $delinquent->isCompany() ? $delinquent->name.' (empresa)' : $delinquent->name }}</td>
+                        <td>{{ $delinquent->phone ? \App\Support\Format::phone($delinquent->phone) : '—' }}</td>
+                        <td class="number">{{ $delinquent->overdueCount }}</td>
+                        <td class="number strong">{{ \App\Support\Format::money($delinquent->overdueAmount) }}</td>
+                        <td>{{ \App\Support\Format::date($delinquent->oldestDueDate) }}</td>
+                        <td class="number late">{{ $delinquent->maxDaysOverdue }} {{ $delinquent->maxDaysOverdue === 1 ? 'dia' : 'dias' }}</td>
+                        <td>{{ $delinquent->situation() }}</td>
                     </tr>
                 @endforeach
             </tbody>

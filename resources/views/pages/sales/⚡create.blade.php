@@ -63,8 +63,12 @@ new class extends Component
             }
         }
 
-        if ($property === 'customer.company_id' && $this->selectedCompany) {
-            $this->customer->due_day = $this->selectedCompany->due_day;
+        if ($property === 'customer.company_id') {
+            if ($this->selectedCompany) {
+                $this->customer->due_day = $this->selectedCompany->due_day;
+            } elseif ($this->selectedPlan) {
+                $this->customer->monthly_amount = number_format((float) $this->selectedPlan->price, 2, ',', '.');
+            }
         }
     }
 
@@ -416,9 +420,15 @@ new class extends Component
             @enderror
         </div>
         <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,220px),1fr))] gap-4">
-            <x-ui.field label="Valor mensal (R$)" for="customer-monthly-amount" error="customer.monthly_amount" hint="Valor cobrado do titular. O preço do plano é só uma sugestão.">
-                <x-ui.input id="customer-monthly-amount" wire:model="customer.monthly_amount" error="customer.monthly_amount" mask="money" placeholder="0,00" />
-            </x-ui.field>
+            @if ($this->selectedCompany)
+                <x-ui.field label="Valor mensal" for="customer-company-amount" hint="Funcionário não paga mensalidade própria.">
+                    <x-ui.input id="customer-company-amount" :value="'Valor fixo da empresa: '.\App\Support\Format::money($this->selectedCompany->monthly_amount)" disabled />
+                </x-ui.field>
+            @else
+                <x-ui.field label="Valor mensal (R$)" for="customer-monthly-amount" error="customer.monthly_amount" hint="Valor cobrado do titular. O preço do plano é só uma sugestão.">
+                    <x-ui.input id="customer-monthly-amount" wire:model="customer.monthly_amount" error="customer.monthly_amount" mask="money" placeholder="0,00" />
+                </x-ui.field>
+            @endif
             <x-ui.field label="Taxa de adesão (R$)" for="customer-enrollment-fee" error="customer.enrollment_fee" hint="Cobrada uma vez, à parte da mensalidade. 0,00 = isento.">
                 <x-ui.input id="customer-enrollment-fee" wire:model="customer.enrollment_fee" error="customer.enrollment_fee" mask="money" placeholder="0,00" />
             </x-ui.field>

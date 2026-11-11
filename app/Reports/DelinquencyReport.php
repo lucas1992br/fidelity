@@ -3,13 +3,13 @@
 namespace App\Reports;
 
 use App\Exports\DelinquentsExport;
-use App\Models\Customer;
 use App\Queries\DelinquentsQuery;
-use Illuminate\Database\Eloquent\Builder;
+use App\Support\Billing\DelinquentRow;
+use Illuminate\Database\Query\Builder;
 
 /**
- * Holders with overdue invoices, longest delay first (DelinquentsQuery, the
- * same rows as the Inadimplentes screen). A snapshot: the period does not apply.
+ * Holders with overdue invoices and companies with overdue bills, longest
+ * delay first (DelinquentsQuery, the same rows as the Inadimplentes screen). A snapshot: the period does not apply.
  */
 class DelinquencyReport extends Report
 {
@@ -25,7 +25,7 @@ class DelinquencyReport extends Report
 
     public static function description(): string
     {
-        return 'Titulares com mensalidades em atraso, pelo maior atraso.';
+        return 'Titulares e empresas com faturas em atraso, pelo maior atraso.';
     }
 
     public static function filters(): array
@@ -34,22 +34,22 @@ class DelinquencyReport extends Report
     }
 
     /**
-     * @return Builder<Customer>
+     * Rows of {@see DelinquentRow} records, longest delay first.
      */
     public function query(): Builder
     {
-        return app(DelinquentsQuery::class)->builder();
+        return app(DelinquentsQuery::class)->rows();
     }
 
     public function rowCount(): int
     {
-        return app(DelinquentsQuery::class)->holdersCount();
+        return app(DelinquentsQuery::class)->count();
     }
 
     public function pdfData(): array
     {
         return [
-            'delinquents' => $this->query()->get(),
+            'delinquents' => app(DelinquentsQuery::class)->get(),
             'summary' => app(DelinquentsQuery::class)->summary(),
         ];
     }

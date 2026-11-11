@@ -1,7 +1,9 @@
 <?php
 
+use App\Actions\Billing\IssueInvoice;
 use App\Actions\Billing\RegisterPayment;
 use App\Enums\PaymentMethod;
+use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Plan;
@@ -94,4 +96,20 @@ test('the atendente gets 403', function () {
 
     $this->get(route('billing.index'))->assertForbidden();
     Livewire::test('pages::billing.index')->assertForbidden();
+});
+
+test('the screen lists the company bill in place of its employees and sends its payment to the company sheet', function () {
+    actingAsRole('financeiro');
+    $company = Company::factory()->create(['name' => 'Metalúrgica Souza LTDA', 'monthly_amount' => '1200.00', 'due_day' => 20]);
+    foreach (['Funcionário Um', 'Funcionário Dois'] as $name) {
+        app(IssueInvoice::class)->handle(Customer::factory()->forCompany($company)->withCard()->create(['name' => $name]), today());
+    }
+
+    Livewire::test('pages::billing.index')
+        ->assertSee('Metalúrgica Souza LTDA')
+        ->assertSee('Fatura da empresa · 2 funcionários')
+        ->assertSee('R$ 1.200,00')
+        ->assertSee(route('companies.show', ['company' => $company->id, 'tab' => 'faturas']), escape: false)
+        ->assertDontSee('Funcionário Um')
+        ->assertDontSee('Funcionário Dois');
 });

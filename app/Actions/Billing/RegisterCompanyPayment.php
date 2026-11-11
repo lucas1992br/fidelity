@@ -6,6 +6,7 @@ use App\Actions\Cards\ReactivateCard;
 use App\Enums\InvoiceStatus as InvoiceStatusEnum;
 use App\Enums\PaymentMethod as PaymentMethodEnum;
 use App\Models\Company;
+use App\Models\CompanyBill;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\User;
@@ -23,7 +24,9 @@ use Illuminate\Validation\ValidationException;
  * single receipt covers every open or overdue employee invoice of that month,
  * which become `paid`, and one income (or one per installment) is booked to
  * the company. Each employee's suspended card is reactivated when the
- * employee is no longer delinquent. The amount must reach the bill total.
+ * employee is no longer delinquent. The amount must reach the bill total: the
+ * company's fixed amount frozen on the month's bill (plus the employee
+ * invoices, zero since the fixed amount).
  * A card payment may record the payer's card (first 6 and last 4 digits
  * only), remembered on the company for the card reconciliation.
  * Requires `billing.pay`.
@@ -93,7 +96,14 @@ class RegisterCompanyPayment
                 ]);
             }
 
-            $total = $invoices->reduce(fn (string $sum, Invoice $invoice): string => bcadd($sum, $invoice->amount, 2), '0.00');
+            $bill = $company->bills()->whereDate('reference_month', $month)->first();
+            $total = CompanyBill::totalOf($bill, $invoices);
+
+            if (bccomp($total, '0', 2) <= 0) {
+                throw ValidationException::withMessages([
+                    'amount' => 'A fatura de '.Carbon::parse($month)->format('m/Y').' está sem valor. Defina o valor fixo mensal da empresa.',
+                ]);
+            }
 
             if (bccomp($validated['amount'], $total, 2) < 0) {
                 throw ValidationException::withMessages([

@@ -2,12 +2,11 @@
 
 namespace App\Exports;
 
-use App\Enums\CardStatus;
-use App\Models\Customer;
 use App\Queries\DelinquentsQuery;
 use App\Settings\ClinicSettings;
+use App\Support\Billing\DelinquentRow;
 use App\Support\Format;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder;
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithColumnFormatting;
@@ -22,7 +21,7 @@ use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
  * issue date. Settings are read when the file is written, so the export can
  * be serialized onto the queue.
  *
- * @implements WithMapping<Customer>
+ * @implements WithMapping<object>
  */
 class DelinquentsExport implements FromQuery, WithColumnFormatting, WithHeadings, WithMapping
 {
@@ -30,12 +29,9 @@ class DelinquentsExport implements FromQuery, WithColumnFormatting, WithHeadings
 
     public function __construct(protected DelinquentsQuery $delinquents) {}
 
-    /**
-     * @return Builder<Customer>
-     */
     public function query(): Builder
     {
-        return $this->delinquents->builder();
+        return $this->delinquents->rows();
     }
 
     /**
@@ -56,25 +52,27 @@ class DelinquentsExport implements FromQuery, WithColumnFormatting, WithHeadings
             ])->filter()->implode(' · ')],
             ['Inadimplentes · emitido em '.now()->format('d/m/Y H:i')],
             [],
-            ['Titular', 'Telefone', 'WhatsApp', 'Faturas em atraso', 'Valor em atraso', 'Vencimento mais antigo', 'Maior atraso (dias)', 'Status do cartão'],
+            ['Titular / empresa', 'Telefone', 'WhatsApp', 'Faturas em atraso', 'Valor em atraso', 'Vencimento mais antigo', 'Maior atraso (dias)', 'Cartão / situação'],
         ];
     }
 
     /**
-     * @param  Customer  $row
+     * @param  object  $row
      * @return list<string|int|float>
      */
     public function map($row): array
     {
+        $line = DelinquentRow::fromRecord($row);
+
         return [
-            $row->name,
-            Format::phone($row->phone),
-            Format::whatsappUrl($row->phone),
-            $row->overdue_invoices_count,
-            (float) $row->overdue_amount,
-            Date::dateTimeToExcel($row->oldest_due_date),
-            $row->max_days_overdue,
-            $row->card_status_id ? CardStatus::fromId($row->card_status_id)->label() : 'Sem cartão',
+            $line->isCompany() ? "{$line->name} (empresa)" : $line->name,
+            $line->phone ? Format::phone($line->phone) : '',
+            $line->phone ? Format::whatsappUrl($line->phone) : '',
+            $line->overdueCount,
+            (float) $line->overdueAmount,
+            Date::dateTimeToExcel($line->oldestDueDate),
+            $line->maxDaysOverdue,
+            $line->situation(),
         ];
     }
 

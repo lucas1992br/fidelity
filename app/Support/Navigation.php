@@ -81,7 +81,7 @@ class Navigation
     public static function badge(string $route): ?int
     {
         $count = match ($route) {
-            'billing.delinquents' => app(DelinquentsQuery::class)->holdersCount(),
+            'billing.delinquents' => app(DelinquentsQuery::class)->count(),
             default => 0,
         };
 

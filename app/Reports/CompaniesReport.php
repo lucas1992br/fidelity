@@ -10,8 +10,8 @@ use Illuminate\Support\Collection;
 
 /**
  * Registered companies with their employees (holders) and the employees'
- * active dependents: card, plan, card status and monthly amount. The
- * monthly bill counts only employees with a card in force. A snapshot: the
+ * active dependents: card, plan and card status. The monthly bill is the
+ * company's fixed amount, whatever the number of employees. A snapshot: the
  * period does not apply; the status filter picks active or inactive companies.
  *
  * @phpstan-type CompanyTotals array{company: string, employees: int, dependents: int, monthly: string}
@@ -79,7 +79,7 @@ class CompaniesReport extends Report
             'company' => $company->display_name,
             'employees' => $inForce->count(),
             'dependents' => $inForce->sum(fn (Customer $employee): int => $employee->activeDependents->count()),
-            'monthly' => $inForce->reduce(fn (string $sum, Customer $employee): string => bcadd($sum, $employee->monthly_amount, 2), '0.00'),
+            'monthly' => $company->monthly_amount,
         ];
     }
 

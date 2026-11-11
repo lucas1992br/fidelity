@@ -1,10 +1,15 @@
 <?php
 
+use App\Actions\Billing\IssueInvoice;
+use App\Actions\Billing\RegisterCompanyPayment;
 use App\Enums\InvoiceStatus;
+use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Plan;
 use App\Queries\InvoicesQuery;
+use App\Support\Billing\BillingRow;
+use Carbon\CarbonImmutable;
 
 beforeEach(function () {
     $this->travelTo('2026-10-15 10:00');
@@ -81,4 +86,57 @@ test('status and customer filters narrow the invoices', function () {
     $query = new InvoicesQuery(status: InvoiceStatus::Overdue, customer: 'maria');
 
     expect($query->builder()->pluck('id')->all())->toBe([$overdue->id]);
+});
+
+/**
+ * Company with fixed amount whose employees got their invoices of the month issued.
+ *
+ * @return list<Invoice>
+ */
+function companyBillOf(Company $company, int $employees, string $month = '2026-10'): array
+{
+    return collect(range(1, $employees))
+        ->map(fn (): Invoice => app(IssueInvoice::class)->handle(Customer::factory()->forCompany($company)->withCard()->create(), CarbonImmutable::parse("{$month}-01")))
+        ->all();
+}
+
+test('a company bill replaces its employee invoices with one line at the fixed amount', function () {
+    invoiceOf($this->plan, InvoiceStatus::Open, '89.90');
+    $company = Company::factory()->create(['name' => 'Metalúrgica Souza LTDA', 'monthly_amount' => '1200.00', 'due_day' => 20]);
+    companyBillOf($company, 3);
+
+    $rows = (new InvoicesQuery(month: '2026-10'))->rows()->get()->map(BillingRow::fromRecord(...));
+    $bill = $rows->first(fn (BillingRow $row): bool => $row->isCompanyBill());
+
+    expect($rows)->toHaveCount(2)
+        ->and($bill->name)->toBe('Metalúrgica Souza LTDA')
+        ->and($bill->companyId)->toBe($company->id)
+        ->and($bill->amount)->toBe('1200.00')
+        ->and($bill->employees)->toBe(3)
+        ->and($bill->status)->toBe(InvoiceStatus::Open)
+        ->and($bill->dueDate->toDateString())->toBe('2026-10-20')
+        ->and((new InvoicesQuery(month: '2026-10'))->summary()['open'])->toBe(['amount' => '1289.90', 'count' => 2]);
+});
+
+test('the company bill status follows its employee invoices and a paid bill links its receipt', function () {
+    $company = Company::factory()->create(['monthly_amount' => '1200.00', 'due_day' => 20]);
+    companyBillOf($company, 2);
+    $payment = app(RegisterCompanyPayment::class)->handle($company, '2026-10', ['paid_at' => '2026-10-15', 'amount' => '1200.00', 'payment_method' => 'pix'], actingAsRole('financeiro'));
+
+    $bill = BillingRow::fromRecord((new InvoicesQuery(month: '2026-10'))->rows()->sole());
+
+    expect($bill->status)->toBe(InvoiceStatus::Paid)
+        ->and($bill->paymentId)->toBe($payment->id)
+        ->and($bill->paidAt->toDateString())->toBe('2026-10-15')
+        ->and((new InvoicesQuery(month: '2026-10'))->summary()['paid'])->toBe(['amount' => '1200.00', 'count' => 1]);
+});
+
+test('the search finds a company bill by name and the plan filter leaves company bills out', function () {
+    invoiceOf($this->plan, InvoiceStatus::Open, '89.90');
+    companyBillOf(Company::factory()->create(['name' => 'Metalúrgica Souza LTDA']), 1);
+
+    $kindsFound = fn (InvoicesQuery $query): array => $query->rows()->pluck('kind')->all();
+
+    expect($kindsFound(new InvoicesQuery(month: '2026-10', customer: 'metalurgica')))->toBe([BillingRow::KindCompanyBill])
+        ->and($kindsFound(new InvoicesQuery(month: '2026-10', planId: $this->plan->id)))->toBe([BillingRow::KindInvoice]);
 });
