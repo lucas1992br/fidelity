@@ -1,13 +1,17 @@
 <?php
 
+use App\Actions\Billing\IssueInvoice;
 use App\Enums\CardStatus;
 use App\Models\Card;
+use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Dependent;
 use App\Models\FinancialEntry;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\PlanChange;
 use App\Services\DashboardMetrics;
+use Carbon\CarbonImmutable;
 
 beforeEach(function () {
     $this->travelTo('2026-10-15 10:00');
@@ -104,4 +108,32 @@ test('top delinquents are the 5 longest delays', function () {
 
     expect(app(DashboardMetrics::class)->topDelinquents()->pluck('id')->all())
         ->toBe([$customers[90], $customers[70], $customers[50], $customers[30], $customers[10]]);
+});
+
+test('month income and expense, sales, billing and payments follow the given month', function () {
+    $august = CarbonImmutable::parse('2026-08-01');
+    FinancialEntry::factory()->income()->paid()->create(['due_date' => '2026-08-02', 'paid_at' => '2026-08-02', 'amount' => '300.00']);
+    FinancialEntry::factory()->expense()->paid()->create(['due_date' => '2026-08-20', 'paid_at' => '2026-08-20', 'amount' => '120.50']);
+    FinancialEntry::factory()->income()->paid()->create(['due_date' => '2026-10-02', 'paid_at' => '2026-10-02', 'amount' => '999.00']);
+    PlanChange::factory()->sale()->count(2)->create(['created_at' => '2026-08-05 10:00']);
+    PlanChange::factory()->reenrollment()->create(['created_at' => '2026-08-06 10:00']);
+    PlanChange::factory()->sale()->create(['created_at' => '2026-10-05 10:00']);
+    $customer = Customer::factory()->withCard()->create();
+    Invoice::factory()->for($customer)->forMonth('2026-08')->paid()->create(['amount' => '89.90']);
+    Invoice::factory()->for(Customer::factory()->withCard())->forMonth('2026-08')->overdue(60)->create(['amount' => '50.00', 'reference_month' => '2026-08-01']);
+    Invoice::factory()->for(Customer::factory()->withCard())->forMonth('2026-08')->cancelled()->create(['amount' => '1000.00']);
+    $company = Company::factory()->create(['monthly_amount' => '1200.00']);
+    app(IssueInvoice::class)->handle(Customer::factory()->forCompany($company)->withCard()->create(), $august);
+    $augustPayment = Payment::factory()->create(['paid_at' => '2026-08-12']);
+    Payment::factory()->create(['paid_at' => '2026-10-12']);
+
+    $metrics = app(DashboardMetrics::class);
+    $series = $metrics->monthlySeries(until: $august);
+
+    expect($metrics->monthTotals($august))->toBe(['income' => '300.00', 'expense' => '120.50'])
+        ->and($metrics->monthSales($august))->toBe(['sales' => 2, 'reenrollments' => 1])
+        ->and($metrics->monthBilling($august))->toBe(['billed' => '1339.90', 'received' => '89.90'])
+        ->and($metrics->latestPayments(month: $august)->pluck('id')->all())->toBe([$augustPayment->id])
+        ->and($series[11]['key'])->toBe('2026-08')
+        ->and($series[0]['key'])->toBe('2025-09');
 });
