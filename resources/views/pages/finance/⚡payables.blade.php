@@ -2,6 +2,7 @@
 
 use App\Enums\EntryStatus;
 use App\Enums\EntryType;
+use App\Livewire\Concerns\FiltersDuePeriod;
 use App\Models\FinancialEntry;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -10,8 +11,10 @@ use Livewire\Attributes\On;
 use Livewire\Component;
 
 /**
- * Accounts payable (US-10.2, US-10.4): pending expenses grouped by due date
- * into overdue, due in the next 7 days and future, each with its total.
+ * Accounts payable (US-10.2, US-10.4): pending expenses due in the chosen
+ * period (the current month by default, any interval of days or months,
+ * plus those overdue before it when checked), grouped by due date into
+ * overdue, due in the next 7 days and future, each with its total.
  * Requires `finance.view`; "Dar baixa" opens the settle modal
  * (`finance.manage`).
  *
@@ -19,6 +22,8 @@ use Livewire\Component;
  */
 new class extends Component
 {
+    use FiltersDuePeriod;
+
     public const string Overdue = 'overdue';
 
     public const string DueSoon = 'due_soon';
@@ -41,9 +46,13 @@ new class extends Component
      */
     protected function pendingExpenses(): Builder
     {
-        return FinancialEntry::query()
+        $query = FinancialEntry::query()
             ->where('entry_type_id', EntryType::Expense->id())
             ->where('entry_status_id', EntryStatus::Pending->id());
+
+        $this->applyDuePeriod($query);
+
+        return $query;
     }
 
     /**
@@ -100,6 +109,8 @@ new class extends Component
 ?>
 
 <div class="flex flex-col gap-5">
+    <x-finance.due-period-filter :label="$this->periodLabel()" />
+
     <div class="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
         @foreach ($groups as $key => $group)
             <x-ui.stat
