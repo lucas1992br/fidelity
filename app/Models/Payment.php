@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\EntryStatus as EntryStatusEnum;
 use App\Enums\PaymentMethod as PaymentMethodEnum;
 use App\Exceptions\PhysicalDeleteNotAllowed;
 use Carbon\CarbonInterface;
@@ -28,8 +29,11 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property int $months
  * @property int $payment_method_id
  * @property int $installments
+ * @property bool $is_debit Card sale on debit (no installments).
  * @property string|null $card_bin First 6 digits of the payer's credit card (never the full number).
  * @property string|null $card_last4 Last 4 digits of the payer's credit card.
+ * @property string|null $card_fee_rate Card machine rate frozen on the card payment.
+ * @property string|null $card_fee_amount Card machine fee of the card payment.
  * @property string|null $notes
  * @property int $user_id
  * @property Carbon|null $refunded_at
@@ -66,8 +70,11 @@ class Payment extends Model
         'months',
         'payment_method_id',
         'installments',
+        'is_debit',
         'card_bin',
         'card_last4',
+        'card_fee_rate',
+        'card_fee_amount',
         'notes',
         'user_id',
         'refunded_at',
@@ -109,6 +116,9 @@ class Payment extends Model
             'receipt_number' => 'integer',
             'months' => 'integer',
             'installments' => 'integer',
+            'is_debit' => 'boolean',
+            'card_fee_rate' => 'decimal:2',
+            'card_fee_amount' => 'decimal:2',
             'paid_at' => 'date',
             'amount' => 'decimal:2',
             'refunded_at' => 'datetime',
@@ -188,6 +198,42 @@ class Payment extends Model
     }
 
     /**
+     * Whether the payment was made on the payer's card (one-off or recurring),
+     * received from the acquirer instead of the payer.
+     */
+    public function isCardPayment(): bool
+    {
+        return PaymentMethodEnum::fromId($this->payment_method_id)->isCreditCard();
+    }
+
+    /**
+     * Amount of the months the payment covers (the plan value paid): the
+     * covered invoices or, for a company, its bill of the month (fixed amount
+     * included); uses the loaded `invoices`.
+     */
+    public function coveredAmount(): string
+    {
+        if (! $this->isCompanyPayment()) {
+            return $this->invoices->reduce(fn (string $sum, Invoice $invoice): string => bcadd($sum, $invoice->amount, 2), '0.00');
+        }
+
+        $bill = CompanyBill::query()
+            ->where('company_id', $this->company_id)
+            ->whereDate('reference_month', $this->invoice->reference_month)
+            ->first();
+
+        return CompanyBill::totalOf($bill, $this->invoices);
+    }
+
+    /**
+     * Card modality, e.g. "Débito", "Crédito à vista" or "Crédito 3x".
+     */
+    public function cardModality(): string
+    {
+        return CardFee::modalityLabel($this->is_debit, $this->installments);
+    }
+
+    /**
      * Covered reference months, e.g. "10/2026" or "10/2026 a 09/2027"; needs the invoice.
      */
     public function referencePeriod(): string
@@ -220,5 +266,38 @@ class Payment extends Model
     public function isRefunded(): bool
     {
         return $this->refunded_at !== null;
+    }
+
+    /**
+     * Installments of the payment's income (cancelled ones left out); uses the
+     * loaded `financialEntries`.
+     */
+    public function totalInstallments(): int
+    {
+        return $this->financialEntries->reject(fn (FinancialEntry $entry): bool => $entry->entry_status_id === EntryStatusEnum::Cancelled->id())->count();
+    }
+
+    /**
+     * Installments already received in accounts receivable.
+     */
+    public function receivedInstallments(): int
+    {
+        return $this->financialEntries->filter(fn (FinancialEntry $entry): bool => $entry->entry_status_id === EntryStatusEnum::Paid->id())->count();
+    }
+
+    /**
+     * Whether some installment is still pending in accounts receivable.
+     */
+    public function hasPendingInstallments(): bool
+    {
+        return $this->financialEntries->contains(fn (FinancialEntry $entry): bool => $entry->entry_status_id === EntryStatusEnum::Pending->id());
+    }
+
+    /**
+     * Whether a pending installment is already past its due date.
+     */
+    public function hasOverdueInstallment(): bool
+    {
+        return $this->financialEntries->contains(fn (FinancialEntry $entry): bool => $entry->entry_status_id === EntryStatusEnum::Pending->id() && $entry->due_date->lt(today()));
     }
 }

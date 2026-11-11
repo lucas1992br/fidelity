@@ -8,6 +8,7 @@ use App\Enums\EntryStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\PaymentMethod;
 use App\Models\Card;
+use App\Models\CardFee;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\User;
@@ -108,7 +109,7 @@ test('refunding an installment payment cancels every installment, received or no
     $payment = app(RegisterPayment::class)->handle(Invoice::factory()->create(['amount' => '90.00']), [
         'paid_at' => '2026-10-15',
         'amount' => '90.00',
-        'payment_method' => PaymentMethod::Card->value,
+        'payment_method' => PaymentMethod::Boleto->value,
         'installments' => 3,
     ], $this->admin);
     app(SettleFinancialEntry::class)->handle($payment->financialEntries()->first(), ['paid_at' => '2026-10-15', 'payment_method' => PaymentMethod::Card->value]);
@@ -134,4 +135,19 @@ test('refunding a multi-month payment reopens every covered month', function () 
     expect($october->refresh()->hasStatus(InvoiceStatus::Overdue))->toBeTrue()
         ->and($november->refresh()->hasStatus(InvoiceStatus::Open))->toBeTrue()
         ->and($november->paid_at)->toBeNull();
+});
+
+test('refunding a card payment cancels the acquirer income and its card machine fee', function () {
+    CardFee::query()->where('is_debit', false)->where('installments', 1)->update(['rate' => '3.00']);
+    $payment = app(RegisterPayment::class)->handle(Invoice::factory()->create(['amount' => '100.00']), [
+        'paid_at' => '2026-10-15',
+        'amount' => '100.00',
+        'payment_method' => PaymentMethod::Card->value,
+    ], $this->admin);
+    $income = $payment->financialEntries()->sole();
+
+    app(RefundPayment::class)->handle($payment, null, $this->admin);
+
+    expect($income->refresh()->entry_status_id)->toBe(EntryStatus::Cancelled->id())
+        ->and($income->fees()->sole()->entry_status_id)->toBe(EntryStatus::Cancelled->id());
 });

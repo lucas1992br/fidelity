@@ -122,6 +122,7 @@ function livewireMutations(): array
         'categorias · finance.categories::save' => [true, fn () => [Livewire::test('pages::finance.categories')->call('create'), 'save', []]],
         'categorias · finance.categories::toggleActive' => [true, fn () => [Livewire::test('pages::finance.categories'), 'toggleActive', [FinancialCategory::factory()->create()->id]]],
         'categorias · finance.categories::delete' => [true, fn () => [Livewire::test('pages::finance.categories'), 'delete', [FinancialCategory::factory()->create()->id]]],
+        'taxas · finance.card-fees::save' => [true, fn () => [Livewire::test('pages::finance.card-fees'), 'save', []]],
 
         // Administração: planos, usuários e configurações
         'planos · plans::create' => [false, fn () => [Livewire::test('pages::plans'), 'create', []]],

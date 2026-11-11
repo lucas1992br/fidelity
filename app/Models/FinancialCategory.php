@@ -37,6 +37,11 @@ class FinancialCategory extends Model
     public const string ENROLLMENT_FEES = 'Taxas de adesão';
 
     /**
+     * Name of the system expense category that receives the card machine fees.
+     */
+    public const string CARD_FEES = 'Taxas da maquininha';
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
@@ -77,12 +82,25 @@ class FinancialCategory extends Model
         return self::systemIncome(self::ENROLLMENT_FEES);
     }
 
+    /**
+     * The system expense category used by the card machine fees.
+     */
+    public static function cardFees(): self
+    {
+        return self::system(self::CARD_FEES, EntryTypeEnum::Expense);
+    }
+
     protected static function systemIncome(string $name): self
+    {
+        return self::system($name, EntryTypeEnum::Income);
+    }
+
+    protected static function system(string $name, EntryTypeEnum $type): self
     {
         return self::query()
             ->where('is_system', true)
             ->where('name', $name)
-            ->where('entry_type_id', EntryTypeEnum::Income->id())
+            ->where('entry_type_id', $type->id())
             ->sole();
     }
 

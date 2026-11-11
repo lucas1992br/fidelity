@@ -49,6 +49,7 @@ class FinancialCategorySeeder extends Seeder
             ['name' => 'Mensalidades', 'entry_type' => 'income', 'is_system' => true],
             ['name' => 'Taxas de adesão', 'entry_type' => 'income', 'is_system' => true],
             ['name' => 'Outras receitas', 'entry_type' => 'income'],
+            ['name' => 'Taxas da maquininha', 'entry_type' => 'expense', 'is_system' => true],
             ['name' => 'Aluguel', 'entry_type' => 'expense'],
             ['name' => 'Salários', 'entry_type' => 'expense'],
             ['name' => 'Materiais', 'entry_type' => 'expense'],

@@ -7,6 +7,7 @@ use Database\Factories\FinancialEntryFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -26,6 +27,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property int|null $payment_method_id
  * @property int|null $payment_id
  * @property int|null $installment_number
+ * @property int|null $related_entry_id Income entry whose card machine fee this expense is.
  * @property string|null $supplier_or_payer
  * @property string|null $notes
  * @property int $user_id
@@ -54,6 +56,7 @@ class FinancialEntry extends Model
         'payment_method_id',
         'payment_id',
         'installment_number',
+        'related_entry_id',
         'supplier_or_payer',
         'notes',
         'user_id',
@@ -137,6 +140,16 @@ class FinancialEntry extends Model
     public function payment(): BelongsTo
     {
         return $this->belongsTo(Payment::class);
+    }
+
+    /**
+     * Card machine fees (expenses) of this income entry, settled together with it.
+     *
+     * @return HasMany<FinancialEntry, $this>
+     */
+    public function fees(): HasMany
+    {
+        return $this->hasMany(self::class, 'related_entry_id');
     }
 
     /**

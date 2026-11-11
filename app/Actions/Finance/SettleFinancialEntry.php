@@ -12,8 +12,9 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Mark a pending entry as paid or received (US-10.4): it enters the cash flow
- * on the informed date. The row is locked, so two settlements of the same
- * entry result in a single one.
+ * on the informed date. Settling a card sale received from the acquirer also
+ * settles its pending card machine fee, since the deposit comes net of it.
+ * The row is locked, so two settlements of the same entry result in a single one.
  */
 class SettleFinancialEntry
 {
@@ -39,11 +40,19 @@ class SettleFinancialEntry
                 throw ValidationException::withMessages(['entry' => 'Este lançamento já foi baixado ou cancelado.']);
             }
 
-            $entry->update([
+            $settlement = [
                 'entry_status_id' => EntryStatusEnum::Paid->id(),
                 'paid_at' => $validated['paid_at'],
                 'payment_method_id' => PaymentMethodEnum::from($validated['payment_method'])->id(),
-            ]);
+            ];
+
+            $entry->update($settlement);
+
+            $entry->fees()
+                ->where('entry_status_id', EntryStatusEnum::Pending->id())
+                ->lockForUpdate()
+                ->get()
+                ->each(fn (FinancialEntry $fee): bool => $fee->update($settlement));
 
             return $entry;
         });

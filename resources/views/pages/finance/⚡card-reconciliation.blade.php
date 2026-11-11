@@ -191,7 +191,7 @@ new class extends Component
 
         return $this->view([
             'transactions' => CardTransaction::query()
-                ->with(['payment.company', 'payment.invoice.customer'])
+                ->with(['payment.company', 'payment.invoice.customer', 'payment.invoices'])
                 ->when($filter, fn ($query, CardTransactionResult $result) => $query->withResult($result))
                 ->latest('occurred_at')
                 ->latest('id')
@@ -253,15 +253,32 @@ new class extends Component
         @if ($transactions->isEmpty())
             <x-ui.empty-state icon="credit-card" title="Nenhuma transação" description="Importe o extrato da Granito para conciliar os pagamentos de cartão." />
         @else
-            <x-ui.table :columns="['Data', 'ID Granito', 'Tipo', 'Cartão', 'Valor', 'Status', 'Resultado', '>Ações']" min-width="min-w-[980px]">
+            <x-ui.table :columns="['Data', 'ID Granito', 'Tipo', 'Cartão', 'Valor do plano', 'Valor no extrato', 'Taxa', 'Líquido', 'Status', 'Resultado', '>Ações']" min-width="min-w-[1280px]">
                 @foreach ($transactions as $transaction)
                     @php($payment = $transaction->payment)
+                    @php($fee = $transaction->fee())
+                    @php($planAmount = $payment?->coveredAmount())
                     <tr wire:key="transaction-{{ $transaction->id }}">
                         <td class="whitespace-nowrap">{{ $transaction->occurred_at->format('d/m/Y H:i') }}</td>
                         <td class="font-mono text-[13px]">{{ $transaction->external_id }}</td>
                         <td>{{ $transaction->type }}</td>
                         <td class="font-mono text-[13px] whitespace-nowrap">{{ $transaction->brand }} {{ $transaction->maskedNumber() }}</td>
-                        <td class="font-semibold text-ink-800">{{ \App\Support\Format::money($transaction->amount) }}</td>
+                        <td class="whitespace-nowrap">
+                            @if ($planAmount !== null)
+                                {{ \App\Support\Format::money($planAmount) }}
+                                @if (bccomp($transaction->amount, $planAmount, 2) !== 0)
+                                    <div class="text-xs text-ink-500">diferença {{ \App\Support\Format::money(bcsub($transaction->amount, $planAmount, 2)) }}</div>
+                                @endif
+                            @else
+                                —
+                            @endif
+                        </td>
+                        <td class="font-semibold text-ink-800 whitespace-nowrap">{{ \App\Support\Format::money($transaction->amount) }}</td>
+                        <td class="whitespace-nowrap">
+                            {{ \App\Support\Format::money($fee['amount']) }}
+                            <div class="text-xs text-ink-500">{{ str_replace('.', ',', $fee['rate']) }}% · {{ \App\Models\CardFee::modalityLabel($transaction->isDebit(), $transaction->installments) }}</div>
+                        </td>
+                        <td class="font-semibold text-success-700 whitespace-nowrap">{{ \App\Support\Format::money($transaction->netAmount()) }}</td>
                         <td>{{ $transaction->status }}</td>
                         <td>
                             <div class="flex flex-col gap-0.5">

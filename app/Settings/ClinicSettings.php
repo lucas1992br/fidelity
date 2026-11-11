@@ -47,6 +47,11 @@ class ClinicSettings extends Settings
      */
     public float $enrollment_commission_percent;
 
+    /**
+     * Days until the acquirer deposits an anticipated card sale (D+N).
+     */
+    public int $card_settlement_days;
+
     public static function group(): string
     {
         return 'clinic';

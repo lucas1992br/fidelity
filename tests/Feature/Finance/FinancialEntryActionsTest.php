@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Billing\RegisterPayment;
 use App\Actions\Finance\CreateFinancialEntry;
 use App\Actions\Finance\DeleteFinancialEntry;
 use App\Actions\Finance\SettleFinancialEntry;
@@ -7,8 +8,10 @@ use App\Actions\Finance\UpdateFinancialEntry;
 use App\Enums\EntryStatus;
 use App\Enums\EntryType;
 use App\Enums\PaymentMethod;
+use App\Models\CardFee;
 use App\Models\FinancialCategory;
 use App\Models\FinancialEntry;
+use App\Models\Invoice;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
 
@@ -144,3 +147,21 @@ test('a cancelled entry cannot be settled', function () {
 
     app(SettleFinancialEntry::class)->handle($entry, ['paid_at' => '2026-10-05', 'payment_method' => 'cash']);
 })->throws(ValidationException::class, 'Este lançamento já foi baixado ou cancelado.');
+
+test('settling the acquirer income of a card sale also settles its card machine fee', function () {
+    CardFee::query()->where('is_debit', false)->where('installments', 1)->update(['rate' => '3.00']);
+    $payment = app(RegisterPayment::class)->handle(Invoice::factory()->create(['amount' => '100.00']), [
+        'paid_at' => '2026-10-15',
+        'amount' => '100.00',
+        'payment_method' => PaymentMethod::Card->value,
+    ], User::factory()->create());
+    $income = $payment->financialEntries()->sole();
+
+    app(SettleFinancialEntry::class)->handle($income, ['paid_at' => '2026-10-16', 'payment_method' => 'card']);
+
+    $fee = $income->fees()->sole();
+
+    expect($fee->entry_status_id)->toBe(EntryStatus::Paid->id())
+        ->and($fee->paid_at->toDateString())->toBe('2026-10-16')
+        ->and($fee->amount)->toBe('3.00');
+});

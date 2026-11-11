@@ -5,6 +5,7 @@ namespace App\Actions\Billing;
 use App\Actions\Cards\ReactivateCard;
 use App\Enums\InvoiceStatus as InvoiceStatusEnum;
 use App\Enums\PaymentMethod as PaymentMethodEnum;
+use App\Models\CardFee;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\User;
@@ -27,8 +28,10 @@ use Illuminate\Validation\ValidationException;
  * the payment, and the amount must reach the sum of the months.
  *
  * Card and boleto payments may be split into up to 12 installments: the
- * invoices are still paid at once, and each installment becomes a pending
- * income ({@see BookPaymentIncome}).
+ * invoices are still paid at once. A card payment (one-off or recurring;
+ * debit when `card_debit`) freezes the card machine rate of its modality and
+ * its fee, and is received from the acquirer at once; a boleto's
+ * installments are pending incomes from the payer ({@see BookPaymentIncome}).
  *
  * Invoices of a company's consolidated bill are paid only through
  * {@see RegisterCompanyPayment}.
@@ -51,7 +54,7 @@ class RegisterPayment
     ) {}
 
     /**
-     * @param  array{paid_at?: mixed, amount?: mixed, payment_method?: mixed, months?: mixed, installments?: mixed, card_digits?: mixed, card_brand?: mixed, notes?: mixed}  $input  Date as Y-m-d, amount as "89.90", method slug, months and installments 1-12 (default 1); card payments may carry the payer's card as first 6 + last 4 digits ("498407-9593") and its brand.
+     * @param  array{paid_at?: mixed, amount?: mixed, payment_method?: mixed, months?: mixed, installments?: mixed, card_digits?: mixed, card_brand?: mixed, card_debit?: mixed, notes?: mixed}  $input  Date as Y-m-d, amount as "89.90", method slug, months and installments 1-12 (default 1); card payments may carry the payer's card as first 6 + last 4 digits ("498407-9593") and its brand.
      *
      * @throws ValidationException
      */
@@ -65,6 +68,7 @@ class RegisterPayment
             'installments' => ['required', 'integer', 'between:1,'.Payment::MaxInstallments],
             'card_digits' => ['nullable', 'string', 'max:25'],
             'card_brand' => ['nullable', 'string', 'max:50'],
+            'card_debit' => ['nullable', 'boolean'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ], [], [
             'paid_at' => 'data do pagamento',
@@ -86,8 +90,15 @@ class RegisterPayment
         }
 
         $cardDigits = RememberPaymentCard::typedDigits($validated['card_digits'] ?? null, $method);
+        $isDebit = $method->isCreditCard() && (bool) ($validated['card_debit'] ?? false);
 
-        return DB::transaction(function () use ($invoice, $validated, $method, $months, $installments, $cardDigits, $user): Payment {
+        if ($isDebit && $installments > 1) {
+            throw ValidationException::withMessages(['installments' => 'Venda no débito não tem parcelas.']);
+        }
+
+        $cardFee = $method->isCreditCard() ? CardFee::feeFor($validated['amount'], $isDebit, $installments) : null;
+
+        return DB::transaction(function () use ($invoice, $validated, $method, $months, $installments, $cardDigits, $isDebit, $cardFee, $user): Payment {
             $invoice = Invoice::query()->with('customer')->lockForUpdate()->findOrFail($invoice->id);
             $this->ensurePayable($invoice, 'Esta mensalidade');
 
@@ -109,6 +120,9 @@ class RegisterPayment
                 'installments' => $installments,
                 'card_bin' => $cardDigits[0] ?? null,
                 'card_last4' => $cardDigits[1] ?? null,
+                'is_debit' => $isDebit,
+                'card_fee_rate' => $cardFee['rate'] ?? null,
+                'card_fee_amount' => $cardFee['amount'] ?? null,
                 'notes' => filled($validated['notes'] ?? null) ? trim($validated['notes']) : null,
                 'user_id' => $user->id,
             ])->refresh();
