@@ -124,3 +124,40 @@ test('the tab reloads when a payment is registered', function () {
     $component->dispatch('payment-registered', invoice: $invoice->id)
         ->assertSeeHtml(route('receipts.show', $payment));
 });
+
+test('an invoice paid in boletos follows accounts receivable until every installment is received', function () {
+    actingAsRole('financeiro');
+    $payment = app(RegisterPayment::class)->handle(Invoice::factory()->for($this->customer)->forMonth('2026-11')->create(['amount' => '300.00']), [
+        'paid_at' => '2026-09-15',
+        'amount' => '300.00',
+        'payment_method' => PaymentMethod::Boleto->value,
+        'installments' => 3,
+    ], User::factory()->create());
+    [$first, $second, $third] = $payment->financialEntries->all();
+
+    invoicesTab($this->customer)->assertSee('Parcela em atraso · 0/3 recebidas');
+
+    $first->forceFill(['entry_status_id' => EntryStatus::Paid->id(), 'paid_at' => '2026-09-15'])->save();
+    $second->forceFill(['entry_status_id' => EntryStatus::Paid->id(), 'paid_at' => '2026-10-15'])->save();
+
+    invoicesTab($this->customer)->assertSee('A receber · 2/3 parcelas')->assertDontSee('Parcela em atraso');
+
+    $third->forceFill(['entry_status_id' => EntryStatus::Paid->id(), 'paid_at' => '2026-11-15'])->save();
+
+    invoicesTab($this->customer)->assertDontSee('A receber')->assertSee('Pago');
+});
+
+test('an invoice paid on the card in installments is paid, since the acquirer owes the installments', function () {
+    actingAsRole('financeiro');
+    app(RegisterPayment::class)->handle(Invoice::factory()->for($this->customer)->forMonth('2026-11')->create(['amount' => '300.00']), [
+        'paid_at' => '2026-09-15',
+        'amount' => '300.00',
+        'payment_method' => PaymentMethod::Card->value,
+        'installments' => 3,
+    ], User::factory()->create());
+
+    invoicesTab($this->customer)
+        ->assertSee('Pago · cartão crédito 3x')
+        ->assertDontSee('A receber')
+        ->assertDontSee('Parcela em atraso');
+});

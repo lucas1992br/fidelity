@@ -39,6 +39,7 @@ function fullAccessMatrix(): array
         'finance.cash-flow' => ['/financeiro/fluxo-de-caixa', $staff],
         'finance.categories' => ['/financeiro/categorias', $staff],
         'finance.card-reconciliation' => ['/financeiro/conciliacao-cartao', $staff],
+        'finance.card-fees' => ['/financeiro/taxas-da-maquininha', $staff],
         'reports.index' => ['/relatorios', $staff],
         'settings' => ['/configuracoes', ['admin']],
         'users.index' => ['/usuarios', ['admin']],

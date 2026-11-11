@@ -5,6 +5,7 @@ use App\Actions\Billing\ReconcileCardTransaction;
 use App\Enums\CardTransactionResult;
 use App\Enums\InvoiceStatus;
 use App\Enums\PaymentMethod;
+use App\Models\CardFee;
 use App\Models\CardImport;
 use App\Models\CardTransaction;
 use App\Models\Company;
@@ -75,19 +76,55 @@ test('an installment sale pays with the installments of its type', function () {
     importStatement([statementLine('1', '145', 'Crédito 3X')]);
 
     expect(Payment::sole()->installments)->toBe(3)
-        ->and(Payment::sole()->financialEntries()->count())->toBe(3);
+        ->and(Payment::sole()->is_debit)->toBeFalse()
+        ->and(Payment::sole()->financialEntries()->count())->toBe(1);
 });
 
-test('an amount covering several months pays them all', function () {
+test('an amount equal to several months of the plan pays them all', function () {
     $invoice = holderWithKnownCard('100.00');
 
-    importStatement([statementLine('1', '250')]);
+    importStatement([statementLine('1', '1200', 'Crédito 12X')]);
 
     $payment = Payment::sole();
 
-    expect($payment->months)->toBe(2)
-        ->and($payment->amount)->toBe('250.00')
-        ->and($invoice->customer->invoices()->where('invoice_status_id', InvoiceStatus::Paid->id())->count())->toBe(2);
+    expect($payment->months)->toBe(12)
+        ->and($payment->amount)->toBe('1200.00')
+        ->and($invoice->customer->invoices()->where('invoice_status_id', InvoiceStatus::Paid->id())->count())->toBe(12);
+});
+
+test('an amount that is not the plan value of the card stays pending and pays no month', function (string $amount) {
+    $invoice = holderWithKnownCard('100.00');
+    $invoice->customer->update(['name' => 'Maria Aparecida Souza']);
+
+    importStatement([statementLine('1', $amount)]);
+
+    expect(CardTransaction::sole()->result)->toBe(CardTransactionResult::Pending)
+        ->and(CardTransaction::sole()->message)->toBe('Valor de R$ '.number_format((float) $amount, 2, ',', '.').' não confere com o plano de Maria Aparecida Souza (mensalidade de R$ 100,00). Vincule manualmente se for deste cliente.')
+        ->and(Payment::count())->toBe(0)
+        ->and($invoice->refresh()->hasStatus(InvoiceStatus::Paid))->toBeFalse();
+})->with(['below the plan' => '99.99', 'between two and three months' => '250.00', 'just above the plan' => '100.01']);
+
+test('two charges of different amounts on the same card settle only the one equal to the plan', function () {
+    $invoice = holderWithKnownCard('89.90');
+
+    importStatement([statementLine('1', '89,90'), statementLine('2', '300')]);
+
+    expect(CardTransaction::where('external_id', '1')->sole()->result)->toBe(CardTransactionResult::Paid)
+        ->and(CardTransaction::where('external_id', '2')->sole()->result)->toBe(CardTransactionResult::Pending)
+        ->and(Payment::sole()->months)->toBe(1)
+        ->and($invoice->customer->invoices()->where('invoice_status_id', InvoiceStatus::Paid->id())->count())->toBe(1);
+});
+
+test('linking by hand accepts an amount above the plan value, the leftover being interest', function () {
+    $user = actingAsRole('financeiro');
+    $invoice = holderWithKnownCard('100.00');
+    importStatement([statementLine('1', '105')], $user);
+
+    app(ReconcileCardTransaction::class)->handle(CardTransaction::sole(), $user, $invoice->customer);
+
+    expect(CardTransaction::sole()->result)->toBe(CardTransactionResult::Paid)
+        ->and(Payment::sole()->months)->toBe(1)
+        ->and(Payment::sole()->amount)->toBe('105.00');
 });
 
 test('an unknown card stays pending with the reason', function () {
@@ -100,10 +137,12 @@ test('an unknown card stays pending with the reason', function () {
         ->and(Payment::count())->toBe(0);
 });
 
-test('an amount below the monthly fee stays pending', function () {
+test('linking by hand an amount below the monthly fee is refused', function () {
+    $user = actingAsRole('financeiro');
     $invoice = holderWithKnownCard('145.00');
+    importStatement([statementLine('1', '100')], $user);
 
-    importStatement([statementLine('1', '100')]);
+    app(ReconcileCardTransaction::class)->handle(CardTransaction::sole(), $user, $invoice->customer);
 
     expect(CardTransaction::sole()->result)->toBe(CardTransactionResult::Pending)
         ->and(CardTransaction::sole()->message)->toBe('Valor de R$ 100,00 menor que a mensalidade de R$ 145,00.')
@@ -148,11 +187,24 @@ test('a company card pays the company oldest open bill', function () {
         Invoice::factory()->for(Customer::factory()->forCompany($company)->withCard())->forMonth('2026-10')->create(['amount' => $amount]);
     }
 
-    importStatement([statementLine('1', '145')]);
+    importStatement([statementLine('1', '145'), statementLine('2', '150')]);
 
     expect(Payment::sole()->company_id)->toBe($company->id)
         ->and(Payment::sole()->invoices()->count())->toBe(2)
-        ->and(CardTransaction::sole()->result)->toBe(CardTransactionResult::Paid);
+        ->and(CardTransaction::where('external_id', '1')->sole()->result)->toBe(CardTransactionResult::Paid)
+        ->and(CardTransaction::where('external_id', '2')->sole()->message)->toBe("{$company->display_name} não tem fatura em aberto.");
+});
+
+test('a company card with an amount different from the bill stays pending', function () {
+    $company = Company::factory()->create(['name' => 'Metalúrgica Souza LTDA', 'trade_name' => null]);
+    PaymentCard::factory()->for($company)->create(['customer_id' => null, 'card_bin' => '498407', 'card_last4' => '9593']);
+    Invoice::factory()->for(Customer::factory()->forCompany($company)->withCard())->forMonth('2026-10')->create(['amount' => '145.00']);
+
+    importStatement([statementLine('1', '150')]);
+
+    expect(CardTransaction::sole()->result)->toBe(CardTransactionResult::Pending)
+        ->and(CardTransaction::sole()->message)->toBe('Valor de R$ 150,00 não confere com a fatura de R$ 145,00 de Metalúrgica Souza LTDA. Vincule manualmente se for desta empresa.')
+        ->and(Payment::count())->toBe(0);
 });
 
 test('linking a pending transaction to a holder pays it and remembers the card for the next import', function () {
@@ -189,4 +241,14 @@ test('importing requires billing.pay', function () {
         ->toThrow(AuthorizationException::class);
 
     expect(CardTransaction::count())->toBe(0);
+});
+
+test('a debit sale pays with the debit rate', function () {
+    CardFee::query()->where('is_debit', true)->update(['rate' => '2.00']);
+    holderWithKnownCard('145.00');
+
+    importStatement([statementLine('1', '145', 'Débito')]);
+
+    expect(Payment::sole()->is_debit)->toBeTrue()
+        ->and(Payment::sole()->card_fee_amount)->toBe('2.90');
 });

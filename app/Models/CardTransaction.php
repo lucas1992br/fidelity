@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 /**
  * Card sale read from the acquirer statement; unique by the acquirer id, so
@@ -105,5 +106,36 @@ class CardTransaction extends Model
     public function maskedNumber(): string
     {
         return PaymentCard::mask($this->card_bin, $this->card_last4);
+    }
+
+    /**
+     * Whether the sale was on debit, read from the statement type ("Débito").
+     */
+    public function isDebit(): bool
+    {
+        return str_contains(Str::lower(Str::ascii($this->type)), 'debito');
+    }
+
+    /**
+     * Card machine rate and fee of the sale: the ones frozen on its payment
+     * once settled, otherwise the current rate of its modality.
+     *
+     * @return array{rate: string, amount: string}
+     */
+    public function fee(): array
+    {
+        if ($this->payment?->card_fee_rate !== null) {
+            return ['rate' => $this->payment->card_fee_rate, 'amount' => $this->payment->card_fee_amount ?? '0.00'];
+        }
+
+        return CardFee::feeFor($this->amount, $this->isDebit(), $this->installments);
+    }
+
+    /**
+     * Amount the acquirer deposits: the sale minus the card machine fee.
+     */
+    public function netAmount(): string
+    {
+        return bcsub($this->amount, $this->fee()['amount'], 2);
     }
 }

@@ -134,7 +134,7 @@ test('card and boleto show the installments and confirming splits the payment', 
     $payment = Payment::query()->sole();
 
     expect($payment->installments)->toBe(3)
-        ->and($payment->financialEntries()->count())->toBe(3);
+        ->and($payment->financialEntries()->count())->toBe(1);
 });
 
 test('switching to a method without installments pays at once', function () {

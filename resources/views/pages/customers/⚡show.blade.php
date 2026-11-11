@@ -327,7 +327,7 @@ new class extends Component
     #[Computed]
     public function invoices(): Collection
     {
-        return $this->customer->invoices()->with('activePayment')->orderByDesc('reference_month')->orderByDesc('id')->get();
+        return $this->customer->invoices()->with('activePayment.financialEntries')->orderByDesc('reference_month')->orderByDesc('id')->get();
     }
 
     /**
@@ -540,6 +540,12 @@ new class extends Component
                                 <td>
                                     @if ($daysOverdue > 0)
                                         <x-ui.badge tone="red">Em atraso · {{ $daysOverdue }} {{ $daysOverdue === 1 ? 'dia' : 'dias' }}</x-ui.badge>
+                                    @elseif ($invoiceStatus === \App\Enums\InvoiceStatus::Paid && $activePayment?->isCardPayment())
+                                        <x-ui.badge tone="green">Pago · cartão {{ mb_strtolower($activePayment->cardModality()) }}</x-ui.badge>
+                                    @elseif ($invoiceStatus === \App\Enums\InvoiceStatus::Paid && $activePayment?->hasOverdueInstallment())
+                                        <x-ui.badge tone="red">Parcela em atraso · {{ $activePayment->receivedInstallments() }}/{{ $activePayment->totalInstallments() }} recebidas</x-ui.badge>
+                                    @elseif ($invoiceStatus === \App\Enums\InvoiceStatus::Paid && $activePayment?->hasPendingInstallments())
+                                        <x-ui.badge tone="amber">A receber · {{ $activePayment->receivedInstallments() }}/{{ $activePayment->totalInstallments() }} parcelas</x-ui.badge>
                                     @else
                                         <x-ui.badge :tone="$invoiceStatus->color()">{{ $invoiceStatus->label() }}</x-ui.badge>
                                     @endif

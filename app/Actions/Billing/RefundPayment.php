@@ -18,7 +18,7 @@ use Illuminate\Validation\ValidationException;
  * Refund a payment registered by mistake (US-9.4, admin only). The payment is
  * kept with the refund stamp, every covered invoice returns to `open` (not yet due) or
  * `overdue` with `paid_at` cleared, and the linked income entries (every
- * installment, received or not) are cancelled.
+ * installment, received or not) and their card machine fees are cancelled.
  * Nothing is deleted and the refund is recorded in the activity log.
  *
  * The card status is not touched: the daily routine re-evaluates suspension.
@@ -64,9 +64,15 @@ class RefundPayment
                 'paid_at' => null,
             ])->save());
 
-            $payment->financialEntries()->get()->each(fn (FinancialEntry $entry): bool => $entry->forceFill([
-                'entry_status_id' => EntryStatusEnum::Cancelled->id(),
-            ])->save());
+            $entries = $payment->financialEntries()->get();
+
+            FinancialEntry::query()
+                ->whereIn('related_entry_id', $entries->modelKeys())
+                ->get()
+                ->concat($entries)
+                ->each(fn (FinancialEntry $entry): bool => $entry->forceFill([
+                    'entry_status_id' => EntryStatusEnum::Cancelled->id(),
+                ])->save());
 
             activity('billing')
                 ->performedOn($payment)

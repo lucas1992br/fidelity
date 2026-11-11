@@ -8,6 +8,7 @@ use App\Enums\EntryType;
 use App\Enums\InvoiceStatus;
 use App\Enums\PaymentMethod;
 use App\Models\Card;
+use App\Models\CardFee;
 use App\Models\Company;
 use App\Models\Customer;
 use App\Models\FinancialCategory;
@@ -162,11 +163,11 @@ test('a cancelled card is never reactivated by a payment', function () {
         ->and($card->statusLogs()->count())->toBe(0);
 });
 
-test('a card payment in 3 installments pays the invoice and books one pending income per month', function () {
+test('a boleto payment in 3 installments pays the invoice and books one pending income per month', function () {
     $customer = Customer::factory()->withCard()->create(['name' => 'Maria Aparecida Souza']);
     $invoice = Invoice::factory()->for($customer)->forMonth('2026-10')->create(['amount' => '100.00']);
 
-    $payment = registerPayment($invoice, ['paid_at' => '2026-10-31', 'payment_method' => PaymentMethod::Card->value, 'installments' => 3]);
+    $payment = registerPayment($invoice, ['paid_at' => '2026-10-31', 'payment_method' => PaymentMethod::Boleto->value, 'installments' => 3]);
 
     expect($payment->installments)->toBe(3)
         ->and($payment->amount)->toBe('100.00');
@@ -180,7 +181,7 @@ test('a card payment in 3 installments pays the invoice and books one pending in
         ->and($entries->map(fn (FinancialEntry $entry): string => $entry->due_date->toDateString())->all())->toBe(['2026-10-31', '2026-11-30', '2026-12-31'])
         ->and($entries->pluck('entry_status_id')->unique()->all())->toBe([EntryStatus::Pending->id()])
         ->and($entries->pluck('paid_at')->filter()->all())->toBe([])
-        ->and($entries->pluck('payment_method_id')->unique()->all())->toBe([PaymentMethod::Card->id()])
+        ->and($entries->pluck('payment_method_id')->unique()->all())->toBe([PaymentMethod::Boleto->id()])
         ->and($entries->pluck('financial_category_id')->unique()->all())->toBe([FinancialCategory::monthlyFees()->id])
         ->and($entries->last()->description)->toBe('Mensalidade 10/2026 - Maria Aparecida Souza (parcela 3/3)');
 });
@@ -210,13 +211,13 @@ test('more than 12 installments are rejected', function () {
         ->and(Payment::count())->toBe(0);
 });
 
-test('a year of plan issues the missing months, pays all of them and splits the total into 12 monthly installments', function () {
+test('a year of plan in 12 boletos issues the missing months, pays all of them and splits the total into 12 monthly installments', function () {
     $customer = Customer::factory()->withCard()->for(Plan::factory()->state(['price' => '89.90']))->create(['name' => 'Maria Aparecida Souza', 'due_day' => 10]);
     $october = Invoice::factory()->for($customer)->forMonth('2026-10')->create(['amount' => '89.90']);
 
     $payment = registerPayment($october, [
         'amount' => '1078.80',
-        'payment_method' => PaymentMethod::Card->value,
+        'payment_method' => PaymentMethod::Boleto->value,
         'months' => 12,
         'installments' => 12,
     ]);
@@ -305,4 +306,44 @@ test('a recurring card payment pays the invoice with its own method and remember
         ->and($payment->methodLabel())->toBe('Cartão recorrente')
         ->and($invoice->refresh()->hasStatus(InvoiceStatus::Paid))->toBeTrue()
         ->and($customer->paymentCards()->sole()->masked_number)->toBe('498407******9593');
+});
+
+test('a year of plan on the card in 12x is received from the acquirer at once, with the card machine fee', function () {
+    settings(['card_settlement_days' => 1]);
+    CardFee::query()->where('is_debit', false)->where('installments', 12)->update(['rate' => '9.99']);
+    $customer = Customer::factory()->withCard()->for(Plan::factory()->state(['price' => '89.90']))->create(['name' => 'Maria Aparecida Souza']);
+    $october = Invoice::factory()->for($customer)->forMonth('2026-10')->create(['amount' => '89.90']);
+
+    $payment = registerPayment($october, ['amount' => '1078.80', 'payment_method' => PaymentMethod::Card->value, 'months' => 12, 'installments' => 12]);
+
+    $income = $payment->financialEntries()->sole();
+    $fee = $income->fees()->sole();
+
+    expect($payment->card_fee_rate)->toBe('9.99')
+        ->and($payment->card_fee_amount)->toBe('107.77')
+        ->and($customer->invoices()->get()->every(fn (Invoice $invoice): bool => $invoice->hasStatus(InvoiceStatus::Paid)))->toBeTrue()
+        ->and($income->amount)->toBe('1078.80')
+        ->and($income->entry_status_id)->toBe(EntryStatus::Pending->id())
+        ->and($income->due_date->toDateString())->toBe('2026-10-16')
+        ->and($income->supplier_or_payer)->toBe('Granito')
+        ->and($income->description)->toBe('Mensalidades 10/2026 a 09/2027 - Maria Aparecida Souza · cartão Crédito 12x')
+        ->and($fee->entry_type_id)->toBe(EntryType::Expense->id())
+        ->and($fee->financial_category_id)->toBe(FinancialCategory::cardFees()->id)
+        ->and($fee->amount)->toBe('107.77')
+        ->and($fee->due_date->toDateString())->toBe('2026-10-16')
+        ->and($fee->entry_status_id)->toBe(EntryStatus::Pending->id());
+});
+
+test('a debit card sale uses the debit rate and cannot be split', function () {
+    CardFee::query()->where('is_debit', true)->update(['rate' => '1.50']);
+    $invoice = Invoice::factory()->for(Customer::factory()->withCard())->forMonth('2026-10')->create(['amount' => '100.00']);
+
+    expect(paymentError(fn () => registerPayment($invoice, ['payment_method' => PaymentMethod::Card->value, 'card_debit' => true, 'installments' => 2]), 'installments'))
+        ->toBe('Venda no débito não tem parcelas.');
+
+    $payment = registerPayment($invoice, ['payment_method' => PaymentMethod::Card->value, 'card_debit' => true]);
+
+    expect($payment->is_debit)->toBeTrue()
+        ->and($payment->card_fee_amount)->toBe('1.50')
+        ->and($payment->financialEntries()->sole()->description)->toEndWith('· cartão Débito');
 });
