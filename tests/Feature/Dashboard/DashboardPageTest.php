@@ -33,7 +33,7 @@ test('the dashboard shows the calculated indicators formatted in reais', functio
             'R$ 2.500,00',
             'R$ 1.234,56',
             '50,0%',
-            '1 de 2 titulares',
+            '1 de 2 titulares e empresas',
             'Maria Conceição',
             '42 dias',
             '#'.$payment->refresh()->receipt_number,

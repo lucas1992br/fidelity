@@ -9,6 +9,7 @@ use App\Enums\EntryStatus;
 use App\Enums\EntryType;
 use App\Enums\InvoiceStatus;
 use App\Models\Card;
+use App\Models\Company;
 use App\Models\CompanyBill;
 use App\Models\Customer;
 use App\Models\Dependent;
@@ -16,6 +17,7 @@ use App\Models\FinancialEntry;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PlanChange;
+use App\Queries\BoletoInstallments;
 use App\Queries\DelinquentsQuery;
 use App\Settings\ClinicSettings;
 use App\Support\Billing\DelinquentRow;
@@ -36,7 +38,7 @@ use Illuminate\Support\Collection;
  * @phpstan-type MonthTotals array{income: string, expense: string}
  * @phpstan-type MonthSales array{sales: int, reenrollments: int}
  * @phpstan-type MonthBilling array{billed: string, received: string}
- * @phpstan-type Delinquency array{delinquent: int, holders: int, rate: float}
+ * @phpstan-type Delinquency array{delinquent: int, holders: int, rate: float} `holders` counts the payers: individual holders plus companies.
  * @phpstan-type SeriesRow array{key: string, label: string, income: string, expense: string}
  */
 class DashboardMetrics
@@ -164,40 +166,69 @@ class DashboardMetrics
     }
 
     /**
-     * Amount still to be received: open and overdue invoices.
+     * Amount still to be received: open and overdue invoices and pending
+     * boleto installments.
      */
     public function openAmount(): string
     {
-        return $this->invoicesAmount(InvoiceStatus::Open, InvoiceStatus::Overdue);
+        return bcadd(
+            $this->invoicesAmount(InvoiceStatus::Open, InvoiceStatus::Overdue),
+            BoletoInstallments::amountOf(BoletoInstallments::pending()),
+            2,
+        );
     }
 
     /**
-     * Amount of the overdue invoices.
+     * Amount of the overdue invoices and late boleto installments.
      */
     public function overdueAmount(): string
     {
-        return $this->invoicesAmount(InvoiceStatus::Overdue);
+        return bcadd(
+            $this->invoicesAmount(InvoiceStatus::Overdue),
+            BoletoInstallments::amountOf(BoletoInstallments::dueBefore(CarbonImmutable::today())),
+            2,
+        );
     }
 
     /**
-     * Holders in force with at least one overdue invoice over the holders in
-     * force (active or suspended card); 0 when there are no holders.
+     * Payers in force that are late over the payers in force, counting each
+     * individual holder (active or suspended card) and each company with an
+     * employee in force once, as the Inadimplentes screen does: a holder is
+     * late with an overdue invoice or late boleto installment of their own,
+     * a company with an overdue bill or late boleto installment of its bill
+     * payments. 0 when there are no payers.
      *
      * @return Delinquency
      */
     public function delinquency(): array
     {
-        $holders = Customer::query()->whereHas('currentCard');
+        $today = CarbonImmutable::today();
+        $holders = Customer::query()->whereHas('currentCard')->whereNull('company_id');
+        $companies = Company::query()->whereHas('employees', fn (Builder $employees) => $employees->whereHas('currentCard'));
 
-        $holdersCount = $holders->count();
-        $delinquentCount = $holders
-            ->whereHas('invoices', fn (Builder $invoices) => $invoices->where('invoice_status_id', InvoiceStatus::Overdue->id()))
+        $payersCount = $holders->clone()->count() + $companies->clone()->count();
+
+        $lateHolders = $holders
+            ->where(fn (Builder $query) => $query
+                ->whereHas('invoices', fn (Builder $invoices) => $invoices->whereNull('company_id')->where('invoice_status_id', InvoiceStatus::Overdue->id()))
+                ->orWhereIn('customers.id', BoletoInstallments::dueBefore($today)
+                    ->whereNull('payments.company_id')
+                    ->join('invoices as paid', 'paid.id', '=', 'payments.invoice_id')
+                    ->select('paid.customer_id')))
             ->count();
+
+        $lateCompanies = $companies
+            ->where(fn (Builder $query) => $query
+                ->whereHas('invoices', fn (Builder $invoices) => $invoices->where('invoice_status_id', InvoiceStatus::Overdue->id()))
+                ->orWhereIn('companies.id', BoletoInstallments::dueBefore($today)->whereNotNull('payments.company_id')->select('payments.company_id')))
+            ->count();
+
+        $delinquentCount = $lateHolders + $lateCompanies;
 
         return [
             'delinquent' => $delinquentCount,
-            'holders' => $holdersCount,
-            'rate' => $holdersCount === 0 ? 0.0 : round($delinquentCount / $holdersCount * 100, 1),
+            'holders' => $payersCount,
+            'rate' => $payersCount === 0 ? 0.0 : round($delinquentCount / $payersCount * 100, 1),
         ];
     }
 

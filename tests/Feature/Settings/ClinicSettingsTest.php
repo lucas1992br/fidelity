@@ -11,7 +11,7 @@ test('clinic settings start with the initial program parameters', function () {
         ->and($settings->clinic_address)->toBeNull()
         ->and($settings->clinic_phone)->toBeNull()
         ->and($settings->default_due_day)->toBe(10)
-        ->and($settings->suspend_after_days)->toBe(1)
+        ->and($settings->suspend_after_days)->toBe(4)
         ->and($settings->invoice_generation_day)->toBe(20)
         ->and($settings->min_card_stock)->toBe(50)
         ->and($settings->card_number_pattern)->toBeNull()

@@ -137,3 +137,15 @@ test('month income and expense, sales, billing and payments follow the given mon
         ->and($series[11]['key'])->toBe('2026-08')
         ->and($series[0]['key'])->toBe('2025-09');
 });
+
+test('the delinquency rate counts each company once, not each of its employees', function () {
+    $late = Company::factory()->create(['monthly_amount' => '1200.00']);
+    foreach (range(1, 3) as $employee) {
+        Invoice::factory()->for(Customer::factory()->forCompany($late)->withCard())->overdue(10)->create(['amount' => '0.00']);
+    }
+    Customer::factory()->forCompany(Company::factory()->create())->withCard()->create();
+    Company::factory()->create();
+    Customer::factory()->withCard()->create();
+
+    expect(app(DashboardMetrics::class)->delinquency())->toBe(['delinquent' => 1, 'holders' => 3, 'rate' => 33.3]);
+});

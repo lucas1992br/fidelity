@@ -30,7 +30,9 @@ use Illuminate\Validation\ValidationException;
  * card (another purchase, a different charge) stays `pending` and settles
  * nothing. When the user links the payer by hand, an amount above the plan
  * value is accepted, with the leftover counted as interest. The payment is a card payment on the
- * transaction date, with the transaction's installments, debit or credit
+ * transaction date ("Cartão recorrente" when the payer's last payment with
+ * that card was recurring and the sale is at once, "Cartão" otherwise), with
+ * the transaction's installments, debit or credit
  * modality (for the card machine fee) and card. When it
  * cannot be settled (unknown or shared card, employee card, nothing open,
  * amount too low) the transaction stays `pending` with the reason.
@@ -106,7 +108,7 @@ class ReconcileCardTransaction
         $input = [
             'paid_at' => $transaction->occurred_at->toDateString(),
             'amount' => $transaction->amount,
-            'payment_method' => PaymentMethodEnum::Card->value,
+            'payment_method' => $this->methodFor($transaction, $payer)->value,
             'installments' => $transaction->isDebit() ? 1 : $transaction->installments,
             'card_debit' => $transaction->isDebit(),
             'card_digits' => $transaction->card_bin.$transaction->card_last4,
@@ -128,6 +130,32 @@ class ReconcileCardTransaction
         $months = $exactAmount ? $this->exactMonths($invoice, $transaction->amount) : $this->coveredMonths($invoice, $transaction->amount);
 
         return $this->registerPayment->handle($invoice, [...$input, 'months' => $months], $user);
+    }
+
+    /**
+     * Recurring card when the payer's last payment with this card was on the
+     * recurring card and the sale is a credit sale at once; card otherwise.
+     */
+    protected function methodFor(CardTransaction $transaction, Customer|Company $payer): PaymentMethodEnum
+    {
+        if ($transaction->isDebit() || $transaction->installments > 1) {
+            return PaymentMethodEnum::Card;
+        }
+
+        $lastMethodId = Payment::query()
+            ->whereNull('refunded_at')
+            ->where('card_bin', $transaction->card_bin)
+            ->where('card_last4', $transaction->card_last4)
+            ->when(
+                $payer instanceof Company,
+                fn ($query) => $query->where('company_id', $payer->id),
+                fn ($query) => $query->whereNull('company_id')->whereHas('invoice', fn ($invoices) => $invoices->where('customer_id', $payer->id)),
+            )
+            ->orderByDesc('paid_at')
+            ->orderByDesc('id')
+            ->value('payment_method_id');
+
+        return $lastMethodId === PaymentMethodEnum::Recurring->id() ? PaymentMethodEnum::Recurring : PaymentMethodEnum::Card;
     }
 
     /**

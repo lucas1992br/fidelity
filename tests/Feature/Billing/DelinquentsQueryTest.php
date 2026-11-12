@@ -1,14 +1,22 @@
 <?php
 
+use App\Actions\Billing\IssueInvoice;
+use App\Actions\Billing\RegisterCompanyPayment;
+use App\Actions\Billing\RegisterPayment;
 use App\Actions\Cards\CancelCard;
 use App\Enums\CardStatus;
+use App\Enums\EntryStatus;
+use App\Enums\EntryType;
+use App\Enums\PaymentMethod;
 use App\Models\Company;
 use App\Models\CompanyBill;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\User;
 use App\Queries\DelinquentsQuery;
+use App\Services\DashboardMetrics;
 use App\Support\Billing\DelinquentRow;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
@@ -76,6 +84,12 @@ test('the listing loads every holder in a single query', function () {
         fn (Customer $customer) => Invoice::factory()->for($customer)->overdue(10)->create(),
     );
 
+    // Lookup ids are loaded once per request; only the listing itself is measured.
+    EntryType::Income->id();
+    EntryStatus::Pending->id();
+    PaymentMethod::Boleto->id();
+    CardStatus::Active->id();
+
     DB::enableQueryLog();
     $rows = app(DelinquentsQuery::class)->get();
     $rows->each(fn (DelinquentRow $row) => [$row->name, $row->phone, $row->cardStatus, $row->maxDaysOverdue]);
@@ -105,4 +119,28 @@ test('an overdue company bill shows as one company line at its fixed amount in p
         ->and($companyRow->employees)->toBe(1)
         ->and(app(DelinquentsQuery::class)->summary())->toBe(['holders' => 1, 'companies' => 1, 'amount' => '1289.90'])
         ->and(app(DelinquentsQuery::class)->count())->toBe(2);
+});
+
+test('late boleto installments make the holder, or the company that paid with them, delinquent', function () {
+    $holder = Customer::factory()->withCard()->create();
+    $holderPayment = app(RegisterPayment::class)->handle(Invoice::factory()->for($holder)->create(['amount' => '300.00']), [
+        'paid_at' => '2026-09-01', 'amount' => '300.00', 'payment_method' => PaymentMethod::Boleto->value, 'installments' => 3,
+    ], User::factory()->create());
+    $company = Company::factory()->create(['monthly_amount' => '1200.00', 'due_day' => 1]);
+    app(IssueInvoice::class)->handle(Customer::factory()->forCompany($company)->withCard()->create(), CarbonImmutable::parse('2026-09-01'));
+    app(RegisterCompanyPayment::class)->handle($company, '2026-09', [
+        'paid_at' => '2026-09-01', 'amount' => '1200.00', 'payment_method' => PaymentMethod::Boleto->value, 'installments' => 2,
+    ], actingAsRole('financeiro'));
+
+    $rows = app(DelinquentsQuery::class)->get()->keyBy(fn (DelinquentRow $row): string => "{$row->kind}-{$row->id}");
+
+    expect($rows->keys()->sort()->values()->all())->toBe(["company-{$company->id}", "holder-{$holder->id}"])
+        ->and($rows["holder-{$holder->id}"]->overdueCount)->toBe(2)
+        ->and($rows["holder-{$holder->id}"]->overdueAmount)->toBe('200.00')
+        ->and($rows["holder-{$holder->id}"]->maxDaysOverdue)->toBe(44)
+        ->and($rows["company-{$company->id}"]->overdueCount)->toBe(2)
+        ->and($rows["company-{$company->id}"]->overdueAmount)->toBe('1200.00')
+        ->and($rows["company-{$company->id}"]->employees)->toBe(1)
+        ->and(app(DashboardMetrics::class)->overdueAmount())->toBe('1400.00')
+        ->and($holderPayment->refresh()->financialEntries()->count())->toBe(3);
 });

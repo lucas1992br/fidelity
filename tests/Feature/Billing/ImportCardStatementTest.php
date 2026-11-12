@@ -2,6 +2,7 @@
 
 use App\Actions\Billing\ImportCardStatement;
 use App\Actions\Billing\ReconcileCardTransaction;
+use App\Actions\Billing\RegisterPayment;
 use App\Enums\CardTransactionResult;
 use App\Enums\InvoiceStatus;
 use App\Enums\PaymentMethod;
@@ -251,4 +252,25 @@ test('a debit sale pays with the debit rate', function () {
 
     expect(Payment::sole()->is_debit)->toBeTrue()
         ->and(Payment::sole()->card_fee_amount)->toBe('2.90');
+});
+
+test('a known card last paid on the recurring card is settled as a recurring payment', function () {
+    $invoice = holderWithKnownCard('100.00');
+    $previous = Invoice::factory()->for($invoice->customer)->forMonth('2026-09')->create(['amount' => '100.00']);
+    app(RegisterPayment::class)->handle($previous, [
+        'paid_at' => '2026-09-07', 'amount' => '100.00', 'payment_method' => PaymentMethod::Recurring->value, 'card_digits' => '498407-9593',
+    ], User::factory()->create());
+
+    importStatement([statementLine('1', '100')]);
+
+    expect(CardTransaction::where('external_id', '1')->sole()->payment->payment_method_id)->toBe(PaymentMethod::Recurring->id())
+        ->and(CardTransaction::where('external_id', '1')->sole()->payment->card_fee_rate)->toBe('0.00');
+});
+
+test('a known card without a recurring history is settled as a card payment', function () {
+    holderWithKnownCard('100.00');
+
+    importStatement([statementLine('1', '100')]);
+
+    expect(Payment::sole()->payment_method_id)->toBe(PaymentMethod::Card->id());
 });

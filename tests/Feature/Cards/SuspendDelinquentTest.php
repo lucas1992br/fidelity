@@ -1,8 +1,13 @@
 <?php
 
+use App\Actions\Billing\RegisterPayment;
+use App\Actions\Finance\SettleFinancialEntry;
 use App\Enums\CardStatus;
+use App\Enums\InvoiceStatus;
+use App\Enums\PaymentMethod;
 use App\Models\Card;
 use App\Models\Invoice;
+use App\Models\User;
 use Spatie\Activitylog\Models\Activity;
 
 beforeEach(function () {
@@ -98,4 +103,39 @@ test('with a one-day limit the nightly routines suspend the card the day after t
     expect($dueYesterday->refresh()->hasStatus(CardStatus::Suspended))->toBeTrue()
         ->and($dueYesterday->statusLogs()->sole()->reason)->toBe('Suspensão automática: 1 dia em atraso')
         ->and($dueToday->refresh()->hasStatus(CardStatus::Active))->toBeTrue();
+});
+
+test('with 3 days of tolerance the card is suspended only on the 4th day late', function () {
+    settings(['suspend_after_days' => 4]);
+    $fourDaysLate = activeCardOverdueBy(4);
+    $threeDaysLate = activeCardOverdueBy(3);
+
+    $this->artisan('cards:suspend-delinquent')->assertSuccessful();
+
+    expect($fourDaysLate->refresh()->hasStatus(CardStatus::Suspended))->toBeTrue()
+        ->and($threeDaysLate->refresh()->hasStatus(CardStatus::Active))->toBeTrue();
+});
+
+test('a late boleto installment suspends the card and settling it reactivates the card', function () {
+    settings(['suspend_after_days' => 4]);
+    $card = Card::factory()->active()->create();
+    $invoice = Invoice::factory()->create(['customer_id' => $card->customer_id, 'amount' => '300.00']);
+    $payment = app(RegisterPayment::class)->handle($invoice, [
+        'paid_at' => '2026-09-01',
+        'amount' => '300.00',
+        'payment_method' => PaymentMethod::Boleto->value,
+        'installments' => 3,
+    ], User::factory()->create());
+    [$september, $october] = $payment->financialEntries->all();
+    app(SettleFinancialEntry::class)->handle($september, ['paid_at' => '2026-09-01', 'payment_method' => 'boleto']);
+
+    $this->artisan('cards:suspend-delinquent')->assertSuccessful();
+
+    expect($invoice->refresh()->hasStatus(InvoiceStatus::Paid))->toBeTrue()
+        ->and($card->refresh()->hasStatus(CardStatus::Suspended))->toBeTrue()
+        ->and($card->statusLogs()->sole()->reason)->toBe('Suspensão automática: 14 dias em atraso');
+
+    app(SettleFinancialEntry::class)->handle($october, ['paid_at' => '2026-10-15', 'payment_method' => 'boleto']);
+
+    expect($card->refresh()->hasStatus(CardStatus::Active))->toBeTrue();
 });

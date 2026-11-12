@@ -142,12 +142,12 @@ new class extends Component
             [
                 'label' => 'Inadimplência',
                 'value' => Number::format($delinquency['rate'], precision: 1, locale: 'pt_BR').'%',
-                'note' => "{$delinquency['delinquent']} de {$delinquency['holders']} titulares",
+                'note' => "{$delinquency['delinquent']} de {$delinquency['holders']} titulares e empresas",
                 'icon' => 'trending-down',
                 'tone' => 'red',
             ],
-            ['label' => 'Valor em aberto', 'value' => Format::money($metrics->openAmount()), 'note' => 'Em aberto + em atraso', 'icon' => 'clock', 'tone' => 'blue'],
-            ['label' => 'Valor em atraso', 'value' => Format::money($metrics->overdueAmount()), 'note' => 'Faturas vencidas', 'icon' => 'circle-alert', 'tone' => 'red'],
+            ['label' => 'Valor em aberto', 'value' => Format::money($metrics->openAmount()), 'note' => 'Mensalidades em aberto e atraso + boletos a receber', 'icon' => 'clock', 'tone' => 'blue'],
+            ['label' => 'Valor em atraso', 'value' => Format::money($metrics->overdueAmount()), 'note' => 'Faturas e parcelas de boleto vencidas', 'icon' => 'circle-alert', 'tone' => 'red'],
         ];
     }
 
